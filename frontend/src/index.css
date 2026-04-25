@@ -1,0 +1,418 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
+/* ─── Design Tokens ─────────────────────────────── */
+:root {
+  /* Brand */
+  --brand: #0a0a0f;
+  --accent: #c9a84c;
+  --accent-light: #e4c575;
+  --gold-glow: rgba(201, 168, 76, 0.15);
+
+  /* Neutrals */
+  --bg: #ffffff;
+  --bg-alt: #f7f7f9;
+  --bg-card: #ffffff;
+  --border: #e8e8ed;
+  --border-strong: #d1d1db;
+
+  /* Text */
+  --text-primary: #0a0a0f;
+  --text-secondary: #4a4a5a;
+  --text-muted: #8f8fa5;
+
+  /* Fluid Space */
+  --sp-1: clamp(0.25rem, 0.5vw, 0.5rem);
+  --sp-2: clamp(0.5rem, 1vw, 1rem);
+  --sp-3: clamp(0.75rem, 1.5vw, 1.5rem);
+  --sp-4: clamp(1rem, 2vw, 2rem);
+  --sp-6: clamp(1.5rem, 3vw, 3rem);
+  --sp-8: clamp(2rem, 4vw, 4rem);
+  --sp-12: clamp(3rem, 6vw, 6rem);
+  --sp-section: clamp(4rem, 10vw, 10rem);
+
+  /* Fluid Type */
+  --t-xs: clamp(0.7rem, 0.5vw + 0.6rem, 0.8rem);
+  --t-sm: clamp(0.8rem, 0.5vw + 0.7rem, 0.9rem);
+  --t-base: clamp(0.9rem, 0.5vw + 0.8rem, 1rem);
+  --t-lg: clamp(1rem, 0.5vw + 0.9rem, 1.125rem);
+  --t-xl: clamp(1.25rem, 1vw + 1rem, 1.5rem);
+  --t-2xl: clamp(1.5rem, 2vw + 1rem, 2rem);
+  --t-3xl: clamp(2rem, 3vw + 1rem, 3.5rem);
+  --t-hero: clamp(2.5rem, 5vw + 1rem, 5.5rem);
+
+  --radius: 10px;
+  --radius-lg: 18px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.10);
+  --transit: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Resets ─────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  word-break: keep-all;
+  line-height: 1.6;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* ─── Layout ─────────────────────────────────────── */
+.wrap {
+  width: min(100% - 2.5rem, 1280px);
+  margin-inline: auto;
+}
+
+.wrap-narrow {
+  width: min(100% - 2.5rem, 760px);
+  margin-inline: auto;
+}
+
+.section {
+  padding-block: var(--sp-section);
+}
+
+/* ─── Typography ─────────────────────────────────── */
+.h1 {
+  font-size: var(--t-hero);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.h2 {
+  font-size: var(--t-3xl);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.h3 {
+  font-size: var(--t-xl);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.body-lg {
+  font-size: var(--t-lg);
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.label {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ─── Buttons ─────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.75rem;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  border-radius: var(--radius);
+  transition: var(--transit);
+  border: 1.5px solid transparent;
+  white-space: nowrap;
+  min-height: 48px;
+}
+
+.btn-gold {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-gold:hover {
+  background: #b8922f;
+  border-color: #b8922f;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(201, 168, 76, 0.35);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+}
+
+/* ─── Cards ───────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6);
+  box-shadow: var(--shadow);
+  transition: var(--transit);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+}
+
+/* ─── Badge / Tag ─────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.badge-gold {
+  background: var(--gold-glow);
+  color: var(--accent);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+}
+
+.badge-blue {
+  background: #e8f0fe;
+  color: #1a4fd6;
+  border: 1px solid #c2d3fb;
+}
+
+.badge-green {
+  background: #e8f7ef;
+  color: #1a8a52;
+  border: 1px solid #b5e0c8;
+}
+
+/* ─── Form Controls ───────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.field label {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: var(--t-base);
+  color: var(--text-primary);
+  background: var(--bg);
+  outline: none;
+  transition: var(--transit);
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--gold-glow);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 180px;
+  line-height: 1.7;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238f8fa5' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+}
+
+/* ─── Divider ─────────────────────────────────────── */
+.divider {
+  width: 48px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 999px;
+  margin-top: var(--sp-3);
+}
+
+/* ─── Auto Grid ───────────────────────────────────── */
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--gi, 260px)), 1fr));
+  gap: var(--sp-4);
+}
+
+/* ─── Animations ──────────────────────────────────── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease both;
+}
+
+/* ─── Responsive Utilities ────────────────────────── */
+.mobile-only {
+  display: none !important;
+}
+
+.desktop-only {
+  display: flex !important;
+}
+
+@media (max-width: 1023px) {
+  .mobile-only {
+    display: flex !important;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* ─── Board Table (Desktop) ───────────────────────── */
+.board-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.board-table th {
+  padding: 1rem 1.25rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.board-table .th-center {
+  text-align: center;
+}
+
+.board-table td {
+  padding: 1.25rem 1.25rem;
+  font-size: var(--t-sm);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.board-table tr:hover td {
+  background: var(--bg-alt);
+  cursor: pointer;
+}
+
+.board-table .td-center {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.board-table .td-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ─── Board Card (Mobile) ─────────────────────────── */
+.board-card {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: var(--transit);
+}
+
+.board-card:hover {
+  background: var(--bg-alt);
+}
+
+.board-card-title {
+  font-size: var(--t-base);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.board-card-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: var(--t-xs);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
