@@ -1,47 +1,107 @@
 # OhLifeUp
 
-> 중국 제품 구매대행 & LifeUpCoaching 구매대행 전문 플랫폼
+> 중국 제품 구매대행 & LifeUpCoaching 구매대행 + BGI 대량유전자분석 패키지 결제 플랫폼
 
----
-
-## 실행 방법
-
-### 1. 처음 실행 (Ubuntu / macOS)
-
-```bash
-git clone <repo-url>
-cd Hompage
-chmod +x run_dev.sh
-./run_dev.sh
-```
-
-첫 실행 시 자동으로 처리됩니다:
-- Python `venv` 생성 및 백엔드 패키지 설치
-- `npm install` (프론트엔드 패키지 설치)
-
-### 2. 이후 실행
-
-```bash
-./run_dev.sh
-```
-
-### 접속 주소
-
-| | 주소 |
-|---|---|
-| 웹사이트 | http://localhost:5173 |
-| API 문서 | http://localhost:8000/docs |
-
-같은 Wi-Fi의 다른 기기에서는 실행 시 콘솔에 출력되는 Network 주소로 접속.
+**Next.js (App Router) + TypeScript + Tailwind CSS + Firebase(Firestore) + PayPal** 기반.
+Vercel 배포를 전제로 한 서버리스 구성입니다 (별도 백엔드 서버 없음).
 
 ---
 
 ## 기술 스택
 
-| | |
+| 영역 | 기술 |
 |---|---|
-| Frontend | React 19 + Vite 7 |
+| Frontend / SSR | Next.js 15 (App Router) + React 19 + TypeScript |
+| 스타일 | Tailwind CSS (+ 디자인 토큰 CSS 변수) |
 | 다국어 | react-i18next (한국어 / EN / 中文) |
-| Backend | FastAPI + Uvicorn |
-| DB | SQLite (SQLAlchemy) |
+| 게시판 DB | Firebase Firestore (프론트에서 SDK 직접 접근, 보안 규칙으로 보호) |
+| 결제 | PayPal JS SDK (Smart Buttons, 신용카드 + PayPal) |
 | 폰트 | Pretendard Variable |
+| 호스팅 | Vercel |
+
+---
+
+## 로컬 실행
+
+### 1. 의존성 설치
+
+```bash
+npm install
+```
+
+### 2. 환경변수 설정
+
+```bash
+cp .env.local.example .env.local
+```
+
+`.env.local` 을 열어 값을 채웁니다.
+
+| 변수 | 설명 |
+|---|---|
+| `NEXT_PUBLIC_FIREBASE_*` | Firebase 콘솔 → 프로젝트 설정 → 내 앱 → SDK 구성값 |
+| `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | PayPal **sandbox** client-id (비우면 `test` 로 동작) |
+| `NEXT_PUBLIC_PAYPAL_AMOUNT` / `NEXT_PUBLIC_PAYPAL_CURRENCY` | BGI 패키지 결제 금액 / 통화 |
+
+> Firebase 값이 비어 있어도 앱은 구동되며, 게시판만 "설정 필요" 안내를 표시합니다.
+
+### 3. 개발 서버
+
+```bash
+npm run dev
+# http://localhost:3000
+```
+
+### 4. 빌드 / 린트
+
+```bash
+npm run build
+npm run lint
+```
+
+---
+
+## Firestore 보안 규칙
+
+게시판은 프론트에서 Firestore에 직접 읽고/씁니다. 반드시 `firestore.rules` 를 배포하세요.
+
+- Firebase CLI: `firebase deploy --only firestore:rules`
+- 또는 Firebase 콘솔 → Firestore Database → **규칙** 에 `firestore.rules` 내용을 붙여넣기
+
+규칙 요약:
+- `posts` (문의 게시판): **읽기 공개 / 생성은 필드·타입·길이 검증 통과 시만 / 수정·삭제 금지**. (비밀번호 필드는 폼에서 입력받지만 공개 컬렉션이라 **저장하지 않습니다**.)
+- `payments` (결제 내역): 결제 성공 시 `{이름, 연락처, 이메일, 주문번호, 금액, 통화, 상품명}` 저장. **이름+연락처로 조회**하기 위해 읽기를 허용합니다.
+
+> ⚠ **결제 내역 조회 보안 주의**: 방식 A(클라이언트 직접 접근)에서는 `payments` 가 읽기 가능해야 조회가 동작하므로, 이 데이터는 완전히 비공개가 아닙니다(이름+연락처를 아는 사람은 조회 가능). 운영 환경에서는 이 조회를 **서버(Next.js Route Handler / Firebase Admin SDK)** 로 옮기고 컬렉션 읽기를 잠그는 것을 권장합니다.
+
+---
+
+## 결제 (PayPal · 서버사이드)
+
+> 📘 **처음 설정한다면 → [`docs/PAYPAL_SETUP.md`](docs/PAYPAL_SETUP.md) (초보자용 단계별 가이드)** 를 보세요.
+> sandbox 앱·테스트 계정·테스트 카드 발급, 로컬 테스트, Live 전환, "Live 실패" 해결까지 다룹니다.
+
+- 결제 위치: **회사 소개(`/`) 페이지 하단 결제 섹션** — **BGI 대량유전자분석 패키지** (기본 $122.00 USD, env로 조정)
+- 구조: **주문 생성·승인(capture)을 서버(Next.js Route Handler)에서 처리** → 금액을 서버가 통제(위변조 방지)
+  - 프론트: `components/payment/PackagePay.tsx` (PayPal 버튼) → `createOrder`/`onApprove` 가 아래 API 호출
+  - 서버: `app/api/paypal/orders` (주문 생성), `app/api/paypal/orders/[orderID]/capture` (승인) — `lib/paypal-server.ts`
+- 흐름: 이름·휴대폰·이메일(선택) 입력 → PayPal/신용카드 결제 → capture 성공 시 `payments` 에 기록 → **"내 결제 내역 즉시 조회"** 에서 이름+연락처로 조회
+- **환경변수** (자세한 건 `.env.local.example` / 위 가이드):
+  - 프론트(공개): `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_PAYPAL_ENV`(sandbox/live), `NEXT_PUBLIC_PAYPAL_CURRENCY`, `NEXT_PUBLIC_PAYPAL_AMOUNT`
+  - 서버(비공개, ⚠ `NEXT_PUBLIC_` 금지): `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`, `PAYPAL_AMOUNT`, `PAYPAL_CURRENCY`
+- **sandbox → live 전환**: 코드 변경 없이 **env 값만** live 자격증명 + `PAYPAL_ENV=live` 로 교체 후 재배포.
+
+---
+
+## Vercel 배포
+
+1. 이 저장소를 GitHub에 push
+2. Vercel에서 New Project → 이 저장소 import (프레임워크 자동 인식: Next.js)
+3. **Environment Variables** 에 `.env.local` 의 값들을 동일하게 입력
+4. Deploy → `git push` 마다 자동 배포
+
+### 도메인 / 인프라 (수동 단계)
+
+- `ohlifeup.com` 도메인을 Vercel 프로젝트에 연결 (Vercel Domains 안내에 따라 DNS 레코드 변경)
+- 기존 알리바바클라우드 ECS는 새 사이트 정상 확인 후 정지/해지
+- 기존 SQLite 데이터 이관: **불필요** (DB 비어 있음)
