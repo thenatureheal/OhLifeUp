@@ -48,8 +48,22 @@ async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-/** Create a CAPTURE order with the server-controlled amount. Returns { id }. */
-export async function createOrder(): Promise<{ id: string }> {
+export interface OrderOptions {
+  amount?: string;
+  currency?: string;
+  description?: string;
+}
+
+/**
+ * Create a CAPTURE order with a SERVER-controlled amount. When called with
+ * options (resolved from a Firestore product on the server), those win;
+ * otherwise the env defaults are used. The browser never dictates the amount.
+ * Returns { id }.
+ */
+export async function createOrder(opts: OrderOptions = {}): Promise<{ id: string }> {
+  const amount = opts.amount || AMOUNT;
+  const currency = opts.currency || CURRENCY;
+  const description = opts.description || DESCRIPTION;
   const token = await getAccessToken();
   const res = await fetch(`${BASE}/v2/checkout/orders`, {
     method: "POST",
@@ -62,8 +76,8 @@ export async function createOrder(): Promise<{ id: string }> {
       intent: "CAPTURE",
       purchase_units: [
         {
-          amount: { currency_code: CURRENCY, value: AMOUNT },
-          description: DESCRIPTION,
+          amount: { currency_code: currency, value: amount },
+          description,
         },
       ],
     }),
