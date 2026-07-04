@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -10,6 +10,7 @@ import {
   type PaymentRecord,
 } from "@/lib/payments";
 import { createNotification } from "@/lib/notifications";
+import { listActiveProducts, type Product } from "@/lib/products";
 import { fmtDate } from "@/lib/format";
 
 // Client id renders the buttons (public). Order creation & capture happen on
@@ -43,7 +44,35 @@ export default function PackagePay() {
   const [payStatus, setPayStatus] = useState<PayStatus>({ kind: "idle" });
   const setField = (k: keyof typeof form, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
-  const canPay = form.name.trim().length > 0 && form.phone.trim().length > 0;
+
+  // ── Products (admin-managed). Falls back to the legacy env product when the
+  //    list is empty or Firebase isn't configured. ──
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedId, setSelectedId] = useState<string>("");
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    listActiveProducts()
+      .then((rows) => {
+        setProducts(rows);
+        if (rows.length) setSelectedId((cur) => cur || rows[0].id);
+      })
+      .catch((e) => console.error("load products failed", e));
+  }, []);
+
+  const selected = products.find((p) => p.id === selectedId) ?? null;
+  const hasProducts = products.length > 0;
+
+  // Effective display/charge values: selected product, else env fallback.
+  const dispName = selected?.name ?? t("payment.packageName");
+  const dispDesc = selected?.description ?? t("payment.packageDesc");
+  const dispAmount = selected?.amount ?? AMOUNT;
+  const dispCurrency = selected?.currency ?? CURRENCY;
+
+  const canPay =
+    form.name.trim().length > 0 &&
+    form.phone.trim().length > 0 &&
+    (!hasProducts || Boolean(selected));
 
   // ── Payment lookup ──
   const [lookup, setLookup] = useState({ name: "", phone: "" });
@@ -128,22 +157,55 @@ export default function PackagePay() {
               />
             </div>
 
-            {/* Product card */}
+            {/* Product selection */}
             <div className="field">
               <label>{t("payment.productLabel")}</label>
-              <div className="flex items-center justify-between gap-4 rounded border-2 border-accent/40 bg-[#fdf6e3] p-4">
-                <div>
-                  <p className="font-bold text-text-primary">
-                    {t("payment.packageName")}
-                  </p>
-                  <p className="mt-1 text-xs text-text-muted">
-                    {t("payment.packageDesc")}
-                  </p>
+
+              {hasProducts ? (
+                <div className="space-y-2">
+                  {products.map((p) => {
+                    const active = p.id === selectedId;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedId(p.id)}
+                        className={`flex w-full items-center justify-between gap-4 rounded border-2 p-4 text-left transition-colors ${
+                          active
+                            ? "border-accent bg-[#fdf6e3]"
+                            : "border-border bg-bg hover:border-accent/50"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-text-primary">
+                            {active ? "✓ " : ""}
+                            {p.name}
+                          </p>
+                          {p.description && (
+                            <p className="mt-1 text-xs text-text-muted">
+                              {p.description}
+                            </p>
+                          )}
+                        </div>
+                        <span className="whitespace-nowrap text-lg font-extrabold text-text-primary">
+                          {p.amount} {p.currency}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className="whitespace-nowrap text-lg font-extrabold text-text-primary">
-                  ${AMOUNT} {CURRENCY}
-                </span>
-              </div>
+              ) : (
+                // Legacy env fallback (single product)
+                <div className="flex items-center justify-between gap-4 rounded border-2 border-accent/40 bg-[#fdf6e3] p-4">
+                  <div>
+                    <p className="font-bold text-text-primary">{dispName}</p>
+                    <p className="mt-1 text-xs text-text-muted">{dispDesc}</p>
+                  </div>
+                  <span className="whitespace-nowrap text-lg font-extrabold text-text-primary">
+                    {AMOUNT} {CURRENCY}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -183,21 +245,25 @@ export default function PackagePay() {
                   )}
                   <div className={canPay ? "" : "pointer-events-none opacity-40"}>
                     <PayPalScriptProvider
+                      key={dispCurrency}
                       options={{
                         clientId: CLIENT_ID,
-                        currency: CURRENCY,
+                        currency: dispCurrency,
                         components: "buttons",
                         intent: "capture",
                       }}
                     >
                       <PayPalButtons
-                        forceReRender={[canPay, CURRENCY]}
+                        forceReRender={[canPay, dispCurrency, dispAmount, selectedId]}
                         disabled={!canPay}
                         style={{ layout: "vertical", shape: "rect", label: "pay" }}
                         createOrder={async () => {
                           const res = await fetch("/api/paypal/orders", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(
+                              selected ? { productId: selected.id } : {}
+                            ),
                           });
                           const data = await res.json();
                           if (!res.ok || !data.id) {
@@ -223,16 +289,15 @@ export default function PackagePay() {
                                   phone: form.phone,
                                   email: form.email,
                                   orderId,
-                                  amount: AMOUNT,
-                                  currency: CURRENCY,
-                                  packageName: t("payment.packageName"),
+                                  amount: dispAmount,
+                                  currency: dispCurrency,
+                                  packageName: dispName,
                                 });
-                                // Notify the admin dashboard (best-effort).
                                 try {
                                   await createNotification(
                                     "payment",
                                     `새 결제: ${form.name.trim()}`,
-                                    `${t("payment.packageName")} · $${AMOUNT} ${CURRENCY} (주문 ${orderId})`,
+                                    `${dispName} · ${dispAmount} ${dispCurrency} (주문 ${orderId})`,
                                     paymentId
                                   );
                                 } catch (e) {
@@ -315,7 +380,7 @@ export default function PackagePay() {
                         {r.packageName}
                       </span>
                       <span className="font-extrabold text-accent">
-                        ${r.amount} {r.currency}
+                        {r.amount} {r.currency}
                       </span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">

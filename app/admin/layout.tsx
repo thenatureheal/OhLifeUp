@@ -10,6 +10,7 @@ import { countUnread } from "@/lib/notifications";
 const NAV = [
   { href: "/admin", label: "대시보드", icon: "📊", exact: true },
   { href: "/admin/payments", label: "결제 목록", icon: "💳" },
+  { href: "/admin/products", label: "상품 관리", icon: "🏷️" },
   { href: "/admin/inquiries", label: "문의 관리", icon: "✉️" },
   { href: "/admin/notifications", label: "알림", icon: "🔔" },
 ];

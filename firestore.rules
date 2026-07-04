@@ -88,6 +88,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /products/{productId} {
+      // 상품/금액은 결제 페이지 표시 + 서버 주문 생성 시 읽어야 하므로 공개 읽기.
+      // 등록/수정/삭제는 관리자만 (서버가 이 금액으로 청구하므로 조작 불가).
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     match /paymentDetails/{paymentId} {
       // 관리자가 입력하는 민감 PII(주소/생년월일/성별/메모). 관리자만 접근.
       allow read, write: if isAdmin();
