@@ -4,6 +4,7 @@ const en: Translation = {
   nav: {
     intro: "About",
     board: "Board",
+    contact: "Contact",
   },
   hero: {
     badge: "Official Health Analysis Partner",
@@ -93,6 +94,28 @@ const en: Translation = {
     lookupOrder: "Order ID",
     lookupAmount: "Amount",
     lookupDate: "Date",
+  },
+  contact: {
+    label: "CONTACT",
+    title: "1:1 Inquiry",
+    subtitle:
+      "Leave your question about payment, application, or products and we'll reply promptly.",
+    nameLabel: "Name",
+    namePlaceholder: "Enter your name",
+    phoneLabel: "Phone (optional)",
+    phonePlaceholder: "01012345678",
+    emailLabel: "Email (optional)",
+    emailPlaceholder: "Email for our reply",
+    messageLabel: "Message",
+    messagePlaceholder: "Please describe your inquiry in detail.",
+    submit: "Submit Inquiry",
+    submitting: "Submitting...",
+    successTitle: "Your inquiry has been received",
+    successMsg: "We'll get back to you shortly. Thank you.",
+    writeAgain: "Write a new inquiry",
+    error: "Something went wrong. Please try again shortly.",
+    notConfigured: "The inquiry feature is not set up yet. Please try again later.",
+    notifyTitle: "New inquiry",
   },
   footer: {
     tagline: "Your trusted global health analysis partner",
