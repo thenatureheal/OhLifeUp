@@ -9,6 +9,7 @@ import {
   lookupPayments,
   type PaymentRecord,
 } from "@/lib/payments";
+import { createNotification } from "@/lib/notifications";
 import { fmtDate } from "@/lib/format";
 
 // Client id renders the buttons (public). Order creation & capture happen on
@@ -217,7 +218,7 @@ export default function PackagePay() {
                             const orderId = result.id ?? data.orderID ?? "";
                             if (isFirebaseConfigured) {
                               try {
-                                await recordPayment({
+                                const paymentId = await recordPayment({
                                   name: form.name,
                                   phone: form.phone,
                                   email: form.email,
@@ -226,6 +227,17 @@ export default function PackagePay() {
                                   currency: CURRENCY,
                                   packageName: t("payment.packageName"),
                                 });
+                                // Notify the admin dashboard (best-effort).
+                                try {
+                                  await createNotification(
+                                    "payment",
+                                    `새 결제: ${form.name.trim()}`,
+                                    `${t("payment.packageName")} · $${AMOUNT} ${CURRENCY} (주문 ${orderId})`,
+                                    paymentId
+                                  );
+                                } catch (e) {
+                                  console.error("payment notification failed", e);
+                                }
                               } catch (e) {
                                 console.error("recordPayment failed", e);
                               }

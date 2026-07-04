@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -18,4 +19,15 @@ export const isFirebaseConfigured = Boolean(
 const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const db: Firestore = getFirestore(app);
+
+// getAuth() eagerly validates the API key and throws (auth/invalid-api-key) when
+// it is missing — which would break `next build` in environments without the
+// Firebase env vars. Initialize lazily so importing this module never throws;
+// callers resolve it at runtime (client), where the config is present.
+let _auth: Auth | null = null;
+export function getAuthClient(): Auth {
+  if (!_auth) _auth = getAuth(app);
+  return _auth;
+}
+
 export default app;

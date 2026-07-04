@@ -9,6 +9,7 @@ import { LANGS, STORAGE_KEY } from "@/i18n/config";
 const NAV = [
   { href: "/", key: "nav.intro" },
   { href: "/board", key: "nav.board" },
+  { href: "/contact", key: "nav.contact" },
 ] as const;
 
 export default function Header() {
