@@ -14,6 +14,7 @@ import { db } from "./firebase";
 const COLLECTION = "inquiries";
 
 export type InquiryStatus = "new" | "answered";
+export type InquiryKind = "general" | "refund";
 
 export interface Inquiry {
   id: string;
@@ -21,6 +22,8 @@ export interface Inquiry {
   phone: string;
   email: string;
   message: string;
+  kind: InquiryKind;
+  orderId: string;
   status: InquiryStatus;
   reply: string;
   createdAt: string | null;
@@ -32,6 +35,8 @@ export interface NewInquiry {
   phone: string;
   email: string;
   message: string;
+  kind?: InquiryKind;
+  orderId?: string;
 }
 
 function toISO(value: unknown): string | null {
@@ -50,10 +55,41 @@ export async function createInquiry(input: NewInquiry): Promise<string> {
     phone: input.phone.trim(),
     email: input.email.trim(),
     message: input.message.trim(),
+    kind: input.kind ?? "general",
+    orderId: (input.orderId ?? "").trim(),
     status: "new",
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+/**
+ * Customer-initiated refund/cancel request. Recorded as a "refund" inquiry so
+ * the admin can see + reply to it in the same 문의 관리 screen, then process the
+ * actual refund in PayPal and flip the payment status.
+ */
+export async function createRefundRequest(input: {
+  name: string;
+  phone: string;
+  email: string;
+  orderId: string;
+  amount: string;
+  currency: string;
+  reason: string;
+}): Promise<string> {
+  const message =
+    `[환불·취소 신청]\n` +
+    `주문번호: ${input.orderId}\n` +
+    `금액: ${input.amount} ${input.currency}\n` +
+    `사유: ${input.reason.trim() || "(미기재)"}`;
+  return createInquiry({
+    name: input.name,
+    phone: input.phone,
+    email: input.email,
+    message,
+    kind: "refund",
+    orderId: input.orderId,
+  });
 }
 
 /** List all inquiries, newest first (admin only). */
@@ -68,6 +104,8 @@ export async function listInquiries(): Promise<Inquiry[]> {
       phone: data.phone ?? "",
       email: data.email ?? "",
       message: data.message,
+      kind: (data.kind as InquiryKind) ?? "general",
+      orderId: data.orderId ?? "",
       status: (data.status as InquiryStatus) ?? "new",
       reply: data.reply ?? "",
       createdAt: toISO(data.createdAt),

@@ -10,6 +10,7 @@ import {
   type PaymentRecord,
 } from "@/lib/payments";
 import { createNotification } from "@/lib/notifications";
+import { createRefundRequest } from "@/lib/inquiries";
 import { listActiveProducts, type Product } from "@/lib/products";
 import { fmtDate } from "@/lib/format";
 
@@ -77,6 +78,57 @@ export default function PackagePay() {
   // ── Payment lookup ──
   const [lookup, setLookup] = useState({ name: "", phone: "" });
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "idle" });
+
+  // ── Refund / cancel request (customer-initiated) ──
+  const [refundOpenId, setRefundOpenId] = useState<string | null>(null);
+  const [refundReason, setRefundReason] = useState("");
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundErr, setRefundErr] = useState(false);
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+
+  const submitRefund = async (r: PaymentRecord) => {
+    setRefundErr(false);
+    setRefundBusy(true);
+    try {
+      const id = await createRefundRequest({
+        name: r.name,
+        phone: r.phone,
+        email: r.email,
+        orderId: r.orderId,
+        amount: r.amount,
+        currency: r.currency,
+        reason: refundReason,
+      });
+      try {
+        await createNotification(
+          "refund_request",
+          `환불·취소 신청: ${r.name}`,
+          `${r.packageName} · ${r.amount} ${r.currency} (주문 ${r.orderId})`,
+          id
+        );
+      } catch (e) {
+        console.error("refund notification failed", e);
+      }
+      setRequestedIds((s) => new Set(s).add(r.id));
+      setRefundOpenId(null);
+      setRefundReason("");
+    } catch (e) {
+      console.error(e);
+      setRefundErr(true);
+    } finally {
+      setRefundBusy(false);
+    }
+  };
+
+  const statusBadge = (status: PaymentRecord["status"]) => {
+    const map = {
+      paid: { cls: "badge-green", label: t("payment.statusPaid") },
+      refunded: { cls: "badge-blue", label: t("payment.statusRefunded") },
+      cancelled: { cls: "badge-gold", label: t("payment.statusCancelled") },
+    } as const;
+    const m = map[status] ?? map.paid;
+    return <span className={`badge ${m.cls}`}>{m.label}</span>;
+  };
 
   const runLookup = async () => {
     if (!lookup.name.trim() || !lookup.phone.trim()) {
@@ -370,29 +422,102 @@ export default function PackagePay() {
           <div className="mt-4 rounded border border-dashed border-border p-5">
             {lookupState.kind === "results" ? (
               <ul className="space-y-3">
-                {lookupState.rows.map((r) => (
-                  <li
-                    key={r.id}
-                    className="rounded border border-border bg-bg-alt p-3 text-sm"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-bold text-text-primary">
-                        {r.packageName}
-                      </span>
-                      <span className="font-extrabold text-accent">
-                        {r.amount} {r.currency}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-                      <span>
-                        {t("payment.lookupOrder")}: {r.orderId}
-                      </span>
-                      <span>
-                        {t("payment.lookupDate")}: {fmtDate(r.createdAt)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
+                {lookupState.rows.map((r) => {
+                  const requested = requestedIds.has(r.id);
+                  const isOpen = refundOpenId === r.id;
+                  return (
+                    <li
+                      key={r.id}
+                      className="rounded border border-border bg-bg-alt p-3 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-bold text-text-primary">
+                          {r.packageName}
+                        </span>
+                        <span className="font-extrabold text-accent">
+                          {r.amount} {r.currency}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
+                        {statusBadge(r.status)}
+                        <span>
+                          {t("payment.lookupOrder")}: {r.orderId}
+                        </span>
+                        <span>
+                          {t("payment.lookupDate")}: {fmtDate(r.createdAt)}
+                        </span>
+                      </div>
+
+                      {/* Refund / cancel request — only for still-paid orders */}
+                      {r.status === "paid" && (
+                        <div className="mt-3 border-t border-border pt-3">
+                          {requested ? (
+                            <p className="text-xs text-[#1a8a52]">
+                              ✅ {t("payment.refundRequested")}
+                            </p>
+                          ) : isOpen ? (
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-text-secondary">
+                                {t("payment.refundReasonLabel")}
+                              </label>
+                              <textarea
+                                className="textarea !min-h-[70px] text-sm"
+                                value={refundReason}
+                                onChange={(e) => setRefundReason(e.target.value)}
+                                placeholder={t("payment.refundReasonPlaceholder")}
+                              />
+                              {refundErr && (
+                                <p className="text-xs text-red-600">
+                                  {t("payment.refundError")}
+                                </p>
+                              )}
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => submitRefund(r)}
+                                  disabled={refundBusy}
+                                  className="btn btn-gold !min-h-0 !py-2 text-xs"
+                                >
+                                  {refundBusy
+                                    ? t("payment.refundSubmitting")
+                                    : t("payment.refundSubmit")}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRefundOpenId(null);
+                                    setRefundReason("");
+                                    setRefundErr(false);
+                                  }}
+                                  className="btn btn-outline !min-h-0 !py-2 text-xs"
+                                >
+                                  {t("payment.refundClose")}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRefundOpenId(r.id);
+                                setRefundReason("");
+                                setRefundErr(false);
+                              }}
+                              className="btn btn-outline !min-h-0 !py-2 text-xs"
+                            >
+                              {t("payment.refundBtn")}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+                <li>
+                  <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                    ℹ️ {t("payment.refundGuide")}
+                  </p>
+                </li>
               </ul>
             ) : (
               <p className="text-center text-sm text-text-muted">

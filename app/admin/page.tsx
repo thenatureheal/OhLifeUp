@@ -15,6 +15,7 @@ const TYPE_ICON: Record<string, string> = {
   refund: "↩️",
   cancel: "⛔",
   inquiry: "✉️",
+  refund_request: "🙋",
 };
 
 export default function AdminDashboard() {

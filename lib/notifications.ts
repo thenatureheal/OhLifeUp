@@ -19,7 +19,12 @@ const COLLECTION = "notifications";
  * - payment / inquiry: created by the public site action (validated by rules).
  * - refund / cancel:    created by an admin from the dashboard (admin-only).
  */
-export type NotificationType = "payment" | "inquiry" | "refund" | "cancel";
+export type NotificationType =
+  | "payment"
+  | "inquiry"
+  | "refund"
+  | "cancel"
+  | "refund_request";
 
 export interface AppNotification {
   id: string;

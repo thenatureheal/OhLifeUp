@@ -94,6 +94,20 @@ const en: Translation = {
     lookupOrder: "Order ID",
     lookupAmount: "Amount",
     lookupDate: "Date",
+    statusPaid: "Paid",
+    statusRefunded: "Refunded",
+    statusCancelled: "Cancelled",
+    refundBtn: "Request Cancel / Refund",
+    refundReasonLabel: "Reason (optional)",
+    refundReasonPlaceholder: "Enter a reason for the cancel/refund (optional)",
+    refundSubmit: "Submit",
+    refundSubmitting: "Submitting...",
+    refundClose: "Close",
+    refundRequested:
+      "Your cancel/refund request has been received. We'll process it after review.",
+    refundGuide:
+      "Refunds are returned to the original payment method (card/PayPal), typically within 3-5 business days of the request.",
+    refundError: "Something went wrong. Please try again shortly.",
   },
   contact: {
     label: "CONTACT",
