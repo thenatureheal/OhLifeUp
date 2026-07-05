@@ -12,6 +12,7 @@ import {
   type PaymentStatus,
 } from "@/lib/payments";
 import { createNotification } from "@/lib/notifications";
+import { getAuthClient } from "@/lib/firebase";
 import { fmtDate } from "@/lib/format";
 
 const STATUS_META: Record<
@@ -39,6 +40,7 @@ export default function AdminPaymentsPage() {
   const [saving, setSaving] = useState(false);
   const [busyStatus, setBusyStatus] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | PaymentStatus>("all");
+  const [refunding, setRefunding] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -102,6 +104,55 @@ export default function AdminPaymentsPage() {
       alert("상태 변경 중 오류가 발생했습니다.");
     } finally {
       setBusyStatus(null);
+    }
+  };
+
+  // One-click: actually refund on PayPal (server route), then mark refunded.
+  const executeRefund = async (row: PaymentRecord) => {
+    if (!row.captureId) {
+      alert(
+        "이 결제는 자동 환불이 불가합니다 (구 결제 — capture id 없음).\nPayPal에서 직접 환불한 뒤 상태를 '환불'로 바꿔주세요."
+      );
+      return;
+    }
+    if (
+      !confirm(
+        `${row.name}님의 $${row.amount} ${row.currency} 결제를 PayPal에서 실제로 환불합니다.\n되돌릴 수 없습니다. 진행할까요?`
+      )
+    )
+      return;
+
+    setRefunding(row.id);
+    try {
+      const idToken = await getAuthClient().currentUser?.getIdToken();
+      if (!idToken) throw new Error("no token");
+      const res = await fetch("/api/admin/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId: row.id, idToken }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(`환불 실패: ${data.error || "알 수 없는 오류"}`);
+        return;
+      }
+      // Reflect immediately (the webhook will also confirm this shortly).
+      await updatePaymentStatus(row.id, "refunded");
+      setRows((prev) =>
+        prev.map((r) => (r.id === row.id ? { ...r, status: "refunded" } : r))
+      );
+      await createNotification(
+        "refund",
+        `PayPal 환불 완료: ${row.name}`,
+        `${row.packageName} · $${row.amount} ${row.currency} (주문 ${row.orderId})`,
+        row.id
+      ).catch(() => {});
+      alert("✅ PayPal 환불이 완료되었습니다.");
+    } catch (e) {
+      console.error(e);
+      alert("환불 실행 중 오류가 발생했습니다. PayPal에서 상태를 확인해주세요.");
+    } finally {
+      setRefunding(null);
     }
   };
 
@@ -324,6 +375,27 @@ export default function AdminPaymentsPage() {
                       )
                     )}
                   </div>
+
+                  {/* One-click real PayPal refund */}
+                  {r.status === "paid" && (
+                    <div className="mt-4 rounded border border-red-200 bg-red-50 p-3">
+                      <p className="mb-2 text-xs text-red-700">
+                        아래 버튼은 <b>PayPal에서 실제로 환불</b>을 실행합니다.
+                        {!r.captureId &&
+                          " (이 결제는 capture id가 없어 자동 환불 불가 — PayPal에서 직접 처리하세요.)"}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => executeRefund(r)}
+                        disabled={refunding === r.id || !r.captureId}
+                        className="btn !min-h-0 !border-red-600 !bg-red-600 !py-2 text-xs text-white hover:!bg-red-700 disabled:opacity-40"
+                      >
+                        {refunding === r.id
+                          ? "환불 처리 중..."
+                          : "💸 PayPal 환불 실행"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })()}
