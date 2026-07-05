@@ -30,6 +30,11 @@ export interface PaymentRecord {
   currency: string;
   packageName: string;
   status: PaymentStatus;
+  // Best-effort payment-source info from the PayPal capture response.
+  // Card FULL number is never available (PCI) — only brand + last 4 digits.
+  cardBrand: string;
+  cardLast4: string;
+  paypalEmail: string;
   createdAt: string | null;
 }
 
@@ -41,6 +46,9 @@ export interface NewPayment {
   amount: string;
   currency: string;
   packageName: string;
+  cardBrand?: string;
+  cardLast4?: string;
+  paypalEmail?: string;
 }
 
 /**
@@ -87,6 +95,9 @@ export async function recordPayment(input: NewPayment): Promise<string> {
     currency: input.currency,
     packageName: input.packageName,
     status: "paid",
+    cardBrand: (input.cardBrand ?? "").slice(0, 30),
+    cardLast4: (input.cardLast4 ?? "").slice(0, 4),
+    paypalEmail: (input.paypalEmail ?? "").slice(0, 200),
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -103,6 +114,9 @@ function mapPayment(id: string, data: Record<string, unknown>): PaymentRecord {
     currency: (data.currency as string) ?? "",
     packageName: (data.packageName as string) ?? "",
     status: (data.status as PaymentStatus) ?? "paid",
+    cardBrand: (data.cardBrand as string) ?? "",
+    cardLast4: (data.cardLast4 as string) ?? "",
+    paypalEmail: (data.paypalEmail as string) ?? "",
     createdAt: toISO(data.createdAt),
   };
 }
