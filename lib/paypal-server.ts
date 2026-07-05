@@ -96,6 +96,35 @@ export async function createOrder(opts: OrderOptions = {}): Promise<{ id: string
 }
 
 /**
+ * Refund a captured payment in full via the PayPal Refunds API. Requires the
+ * capture id (stored on the payment at checkout). Returns the refund id/status.
+ */
+export async function refundCapture(
+  captureId: string
+): Promise<{ id: string; status: string }> {
+  const token = await getAccessToken();
+  const res = await fetch(
+    `${BASE}/v2/payments/captures/${captureId}/refund`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        // Idempotency: retrying the same refund won't double-refund.
+        "PayPal-Request-Id": `refund-${captureId}`,
+      },
+      cache: "no-store",
+      body: JSON.stringify({}), // empty body = full refund
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(`PayPal refund error ${res.status}: ${JSON.stringify(data)}`);
+  }
+  return { id: data.id as string, status: data.status as string };
+}
+
+/**
  * Verify a PayPal webhook signature via PayPal's verify-webhook-signature API.
  * Returns true only when PayPal confirms the event is genuine — this is what
  * stops an attacker from POSTing fake refund events to our webhook.
