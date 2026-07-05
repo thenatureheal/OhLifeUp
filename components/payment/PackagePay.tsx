@@ -344,6 +344,9 @@ export default function PackagePay() {
                               src?.paypal?.email_address ??
                               result?.payer?.email_address ??
                               "";
+                            const captureId =
+                              result?.purchase_units?.[0]?.payments
+                                ?.captures?.[0]?.id ?? "";
                             if (isFirebaseConfigured) {
                               try {
                                 const paymentId = await recordPayment({
@@ -357,6 +360,7 @@ export default function PackagePay() {
                                   cardBrand,
                                   cardLast4,
                                   paypalEmail,
+                                  captureId,
                                 });
                                 try {
                                   await createNotification(

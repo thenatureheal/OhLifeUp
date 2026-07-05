@@ -25,8 +25,12 @@ const CURRENCY =
 
 const DESCRIPTION = "BGI Bulk Genetic Analysis Package";
 
+const WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID || "";
+
 export const paypalEnv = PAYPAL_ENV;
 export const isPayPalServerConfigured = Boolean(CLIENT_ID && CLIENT_SECRET);
+export const isPayPalWebhookConfigured =
+  isPayPalServerConfigured && Boolean(WEBHOOK_ID);
 
 /** OAuth2 client-credentials token. */
 async function getAccessToken(): Promise<string> {
@@ -89,6 +93,60 @@ export async function createOrder(opts: OrderOptions = {}): Promise<{ id: string
     );
   }
   return { id: data.id as string };
+}
+
+/**
+ * Verify a PayPal webhook signature via PayPal's verify-webhook-signature API.
+ * Returns true only when PayPal confirms the event is genuine — this is what
+ * stops an attacker from POSTing fake refund events to our webhook.
+ */
+export async function verifyWebhookSignature(
+  headers: {
+    transmissionId: string;
+    transmissionTime: string;
+    certUrl: string;
+    authAlgo: string;
+    transmissionSig: string;
+  },
+  event: unknown
+): Promise<boolean> {
+  if (!WEBHOOK_ID) return false;
+  if (
+    !headers.transmissionId ||
+    !headers.transmissionSig ||
+    !headers.certUrl
+  ) {
+    return false;
+  }
+  try {
+    const token = await getAccessToken();
+    const res = await fetch(
+      `${BASE}/v1/notifications/verify-webhook-signature`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          transmission_id: headers.transmissionId,
+          transmission_time: headers.transmissionTime,
+          cert_url: headers.certUrl,
+          auth_algo: headers.authAlgo,
+          transmission_sig: headers.transmissionSig,
+          webhook_id: WEBHOOK_ID,
+          webhook_event: event,
+        }),
+      }
+    );
+    if (!res.ok) return false;
+    const data = (await res.json()) as { verification_status?: string };
+    return data.verification_status === "SUCCESS";
+  } catch (err) {
+    console.error("[paypal] webhook verify failed:", err);
+    return false;
+  }
 }
 
 /** Capture (finalize) an approved order. Returns the raw PayPal capture result. */

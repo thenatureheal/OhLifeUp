@@ -35,6 +35,9 @@ export interface PaymentRecord {
   cardBrand: string;
   cardLast4: string;
   paypalEmail: string;
+  // PayPal capture id — lets the webhook match refund/reversal events back to
+  // this payment and auto-sync its status.
+  captureId: string;
   createdAt: string | null;
 }
 
@@ -49,6 +52,7 @@ export interface NewPayment {
   cardBrand?: string;
   cardLast4?: string;
   paypalEmail?: string;
+  captureId?: string;
 }
 
 /**
@@ -98,6 +102,7 @@ export async function recordPayment(input: NewPayment): Promise<string> {
     cardBrand: (input.cardBrand ?? "").slice(0, 30),
     cardLast4: (input.cardLast4 ?? "").slice(0, 4),
     paypalEmail: (input.paypalEmail ?? "").slice(0, 200),
+    captureId: (input.captureId ?? "").slice(0, 100),
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -117,6 +122,7 @@ function mapPayment(id: string, data: Record<string, unknown>): PaymentRecord {
     cardBrand: (data.cardBrand as string) ?? "",
     cardLast4: (data.cardLast4 as string) ?? "",
     paypalEmail: (data.paypalEmail as string) ?? "",
+    captureId: (data.captureId as string) ?? "",
     createdAt: toISO(data.createdAt),
   };
 }
