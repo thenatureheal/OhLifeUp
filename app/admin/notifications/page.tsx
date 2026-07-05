@@ -18,6 +18,7 @@ const TYPE_META: Record<
   refund: { label: "환불", icon: "↩️", badge: "badge-blue" },
   cancel: { label: "취소", icon: "⛔", badge: "badge-gold" },
   inquiry: { label: "문의", icon: "✉️", badge: "badge-gold" },
+  refund_request: { label: "환불신청", icon: "🙋", badge: "badge-blue" },
 };
 
 export default function AdminNotificationsPage() {
@@ -97,6 +98,7 @@ export default function AdminNotificationsPage() {
           [
             { k: "all", label: "전체" },
             { k: "payment", label: "결제" },
+            { k: "refund_request", label: "환불신청" },
             { k: "refund", label: "환불" },
             { k: "cancel", label: "취소" },
             { k: "inquiry", label: "문의" },

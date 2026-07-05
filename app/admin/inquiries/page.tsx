@@ -128,7 +128,7 @@ export default function AdminInquiriesPage() {
                   className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-bg-alt"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={`badge ${
                           inq.status === "answered"
@@ -138,6 +138,9 @@ export default function AdminInquiriesPage() {
                       >
                         {inq.status === "answered" ? "답변완료" : "미답변"}
                       </span>
+                      {inq.kind === "refund" && (
+                        <span className="badge badge-blue">환불신청</span>
+                      )}
                       <span className="font-bold text-text-primary">
                         {inq.name}
                       </span>
@@ -157,6 +160,7 @@ export default function AdminInquiriesPage() {
                     <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
                       {inq.phone && <span>📞 {inq.phone}</span>}
                       {inq.email && <span>✉️ {inq.email}</span>}
+                      {inq.orderId && <span>🧾 주문 {inq.orderId}</span>}
                     </div>
 
                     {/* Original message */}
