@@ -38,6 +38,7 @@ export default function AdminPaymentsPage() {
   const [draft, setDraft] = useState<PaymentDetails>(EMPTY_DETAILS);
   const [saving, setSaving] = useState(false);
   const [busyStatus, setBusyStatus] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | PaymentStatus>("all");
 
   const load = async () => {
     setLoading(true);
@@ -104,6 +105,14 @@ export default function AdminPaymentsPage() {
     }
   };
 
+  const visible = filter === "all" ? rows : rows.filter((r) => r.status === filter);
+  const counts = {
+    all: rows.length,
+    paid: rows.filter((r) => r.status === "paid").length,
+    refunded: rows.filter((r) => r.status === "refunded").length,
+    cancelled: rows.filter((r) => r.status === "cancelled").length,
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between gap-4">
@@ -121,13 +130,40 @@ export default function AdminPaymentsPage() {
         </button>
       </div>
 
+      {/* Status filter */}
+      {rows.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-1">
+          {(
+            [
+              { k: "all", label: `전체 (${counts.all})` },
+              { k: "paid", label: `결제완료 (${counts.paid})` },
+              { k: "refunded", label: `환불 (${counts.refunded})` },
+              { k: "cancelled", label: `취소 (${counts.cancelled})` },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.k}
+              type="button"
+              onClick={() => setFilter(f.k)}
+              className={`rounded px-3 py-1.5 text-xs font-bold transition-colors ${
+                filter === f.k
+                  ? "bg-accent text-white"
+                  : "text-text-secondary hover:bg-bg-alt"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="mt-8 text-text-muted">불러오는 중...</p>
       ) : rows.length === 0 ? (
         <p className="mt-8 text-text-muted">결제 내역이 없습니다.</p>
       ) : (
         <div className="card mt-6 overflow-x-auto !p-0">
-          <table className="board-table min-w-[860px]">
+          <table className="board-table min-w-[980px]">
             <thead>
               <tr>
                 <th>이름</th>
@@ -137,13 +173,14 @@ export default function AdminPaymentsPage() {
                 <th>성별</th>
                 <th>주소</th>
                 <th>결제</th>
+                <th>결제수단</th>
                 <th>상태</th>
                 <th>결제일</th>
                 <th>관리</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
+              {visible.map((r) => {
                 const d = details[r.id] ?? EMPTY_DETAILS;
                 const isOpen = editing === r.id;
                 return (
@@ -158,6 +195,13 @@ export default function AdminPaymentsPage() {
                     </td>
                     <td className="whitespace-nowrap">
                       ${r.amount} {r.currency}
+                    </td>
+                    <td className="whitespace-nowrap text-xs">
+                      {r.cardBrand || r.cardLast4
+                        ? `${r.cardBrand || "카드"} ****${r.cardLast4 || "----"}`
+                        : r.paypalEmail
+                          ? `PayPal (${r.paypalEmail})`
+                          : "-"}
                     </td>
                     <td>
                       <span className={`badge ${STATUS_META[r.status].badge}`}>

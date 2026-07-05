@@ -334,6 +334,16 @@ export default function PackagePay() {
                               throw new Error(result.error || "capture failed");
                             }
                             const orderId = result.id ?? data.orderID ?? "";
+                            // Best-effort payment-source info (card brand/last4,
+                            // PayPal email) — present only when PayPal returns it.
+                            const src = result?.payment_source ?? {};
+                            const card = src?.card ?? {};
+                            const cardBrand = card?.brand ?? "";
+                            const cardLast4 = card?.last_digits ?? "";
+                            const paypalEmail =
+                              src?.paypal?.email_address ??
+                              result?.payer?.email_address ??
+                              "";
                             if (isFirebaseConfigured) {
                               try {
                                 const paymentId = await recordPayment({
@@ -344,6 +354,9 @@ export default function PackagePay() {
                                   amount: dispAmount,
                                   currency: dispCurrency,
                                   packageName: dispName,
+                                  cardBrand,
+                                  cardLast4,
+                                  paypalEmail,
                                 });
                                 try {
                                   await createNotification(
