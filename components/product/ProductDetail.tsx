@@ -1,4 +1,4 @@
-const TOTAL = 22;
+const TOTAL = 20;
 
 export default function ProductDetail() {
   return (
