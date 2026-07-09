@@ -1,6 +1,7 @@
 const ko = {
   nav: {
     intro: "회사 소개",
+    product: "제품 상세",
     board: "게시판",
     contact: "문의하기",
   },

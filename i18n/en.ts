@@ -3,6 +3,7 @@ import type { Translation } from "./ko";
 const en: Translation = {
   nav: {
     intro: "About",
+    product: "Product",
     board: "Board",
     contact: "Contact",
   },
