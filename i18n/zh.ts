@@ -3,6 +3,7 @@ import type { Translation } from "./ko";
 const zh: Translation = {
   nav: {
     intro: "公司介绍",
+    product: "产品详情",
     board: "留言板",
     contact: "咨询",
   },

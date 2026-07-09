@@ -8,6 +8,7 @@ import { LANGS, STORAGE_KEY } from "@/i18n/config";
 
 const NAV = [
   { href: "/", key: "nav.intro" },
+  { href: "/product", key: "nav.product" },
   { href: "/board", key: "nav.board" },
   { href: "/contact", key: "nav.contact" },
 ] as const;
