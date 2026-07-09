@@ -58,10 +58,17 @@ const config: Config = {
           from: { opacity: "0" },
           to: { opacity: "1" },
         },
+        // Continuous upward scroll. The list is rendered twice; moving up by
+        // exactly half its height (one full set) makes the loop seamless.
+        marqueeUp: {
+          from: { transform: "translateY(0)" },
+          to: { transform: "translateY(-50%)" },
+        },
       },
       animation: {
         "fade-up": "fadeUp 0.6s cubic-bezier(0.2,0.8,0.2,1) both",
         "fade-in": "fadeIn 0.3s ease both",
+        "marquee-up": "marqueeUp 24s linear infinite",
       },
     },
   },

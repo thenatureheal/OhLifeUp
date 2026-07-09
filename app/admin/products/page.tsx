@@ -10,12 +10,14 @@ import {
   type Product,
   type ProductInput,
 } from "@/lib/products";
+import { fileToResizedDataUrl } from "@/lib/image";
 
 const EMPTY_FORM: ProductInput = {
   name: "",
   description: "",
   amount: "",
   currency: "USD",
+  imageUrl: "",
   active: true,
   sortOrder: 0,
 };
@@ -26,6 +28,7 @@ export default function AdminProductsPage() {
   const [editingId, setEditingId] = useState<string | null>(null); // null=none, "new"=create
   const [form, setForm] = useState<ProductInput>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [imgBusy, setImgBusy] = useState(false);
   const [error, setError] = useState("");
 
   const load = async () => {
@@ -59,10 +62,30 @@ export default function AdminProductsPage() {
       description: p.description,
       amount: p.amount,
       currency: p.currency,
+      imageUrl: p.imageUrl,
       active: p.active,
       sortOrder: p.sortOrder,
     });
     setEditingId(p.id);
+  };
+
+  const onPickImage = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("이미지 파일만 업로드할 수 있습니다.");
+      return;
+    }
+    setError("");
+    setImgBusy(true);
+    try {
+      const url = await fileToResizedDataUrl(file);
+      setField("imageUrl", url);
+    } catch (e) {
+      console.error(e);
+      setError("이미지 처리 중 오류가 발생했습니다. 다른 이미지를 시도해주세요.");
+    } finally {
+      setImgBusy(false);
+    }
   };
 
   const save = async () => {
@@ -101,6 +124,7 @@ export default function AdminProductsPage() {
         description: p.description,
         amount: p.amount,
         currency: p.currency,
+        imageUrl: p.imageUrl,
         active: !p.active,
         sortOrder: p.sortOrder,
       });
@@ -168,6 +192,57 @@ export default function AdminProductsPage() {
                 placeholder="예: BGI 대량유전자분석 패키지"
               />
             </div>
+
+            {/* 상품 이미지 업로드 (상품명 바로 아래) */}
+            <div className="field sm:col-span-2">
+              <label>상품 이미지</label>
+              {form.imageUrl ? (
+                <div className="flex items-start gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.imageUrl}
+                    alt="상품 이미지 미리보기"
+                    className="h-24 w-24 flex-none rounded-md border border-border object-cover"
+                  />
+                  <div className="flex flex-col items-start gap-2">
+                    <label className="btn btn-outline !min-h-0 cursor-pointer !py-2 text-xs">
+                      {imgBusy ? "처리 중..." : "이미지 변경"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={imgBusy}
+                        onChange={(e) => onPickImage(e.target.files?.[0])}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setField("imageUrl", "")}
+                      className="text-xs font-bold text-red-500 hover:underline"
+                    >
+                      이미지 삭제
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-border text-center text-sm text-text-muted transition-colors hover:border-accent/50">
+                  <span className="font-semibold">
+                    {imgBusy ? "처리 중..." : "＋ 이미지 업로드"}
+                  </span>
+                  <span className="text-xs">
+                    클릭하여 파일 선택 · 자동 리사이즈/압축됩니다
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={imgBusy}
+                    onChange={(e) => onPickImage(e.target.files?.[0])}
+                  />
+                </label>
+              )}
+            </div>
+
             <div className="field sm:col-span-2">
               <label>상품 설명</label>
               <input
@@ -263,6 +338,7 @@ export default function AdminProductsPage() {
             <thead>
               <tr>
                 <th>순서</th>
+                <th>이미지</th>
                 <th>상품명</th>
                 <th>설명</th>
                 <th>금액</th>
@@ -274,6 +350,20 @@ export default function AdminProductsPage() {
               {rows.map((p) => (
                 <tr key={p.id}>
                   <td className="td-center">{p.sortOrder}</td>
+                  <td>
+                    {p.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.imageUrl}
+                        alt={p.name}
+                        className="h-12 w-12 rounded border border-border object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-12 w-12 items-center justify-center rounded border border-dashed border-border text-[0.65rem] text-text-muted">
+                        없음
+                      </span>
+                    )}
+                  </td>
                   <td className="td-title">{p.name}</td>
                   <td className="max-w-[220px] truncate" title={p.description}>
                     {p.description || "-"}

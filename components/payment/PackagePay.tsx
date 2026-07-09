@@ -13,6 +13,11 @@ import { createNotification } from "@/lib/notifications";
 import { createRefundRequest } from "@/lib/inquiries";
 import { listActiveProducts, type Product } from "@/lib/products";
 import { fmtDate } from "@/lib/format";
+import RecentApplicants from "./RecentApplicants";
+
+// Representative product thumbnail (products have no image field yet — reuse the
+// first detail image from the landing page).
+const PRODUCT_THUMB = "/products/allinone/01.png";
 
 // Client id renders the buttons (public). Order creation & capture happen on
 // our server (/api/paypal/*), which controls the real amount. Sandbox vs live is
@@ -162,6 +167,9 @@ export default function PackagePay() {
           <div className="divider mx-auto" />
         </div>
 
+        {/* ── Live applicants ticker (social proof) ── */}
+        <RecentApplicants />
+
         {/* ── Application & payment card ── */}
         <div className="card mt-10">
           <h3 className="h3 flex items-center gap-2">
@@ -214,7 +222,7 @@ export default function PackagePay() {
               <label>{t("payment.productLabel")}</label>
 
               {hasProducts ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {products.map((p) => {
                     const active = p.id === selectedId;
                     return (
@@ -222,40 +230,91 @@ export default function PackagePay() {
                         key={p.id}
                         type="button"
                         onClick={() => setSelectedId(p.id)}
-                        className={`flex w-full items-center justify-between gap-4 rounded border-2 p-4 text-left transition-colors ${
+                        className={`flex w-full flex-col gap-3 rounded-lg border-2 p-4 text-left transition-colors ${
                           active
                             ? "border-accent bg-[#fdf6e3]"
                             : "border-border bg-bg hover:border-accent/50"
                         }`}
                       >
-                        <div className="min-w-0">
-                          <p className="font-bold text-text-primary">
-                            {active ? "✓ " : ""}
+                        {/* 1) 상품명 */}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border text-[0.7rem] ${
+                              active
+                                ? "border-accent bg-accent text-white"
+                                : "border-border-strong text-transparent"
+                            }`}
+                            aria-hidden="true"
+                          >
+                            ✓
+                          </span>
+                          <p className="font-bold leading-snug text-text-primary">
                             {p.name}
                           </p>
-                          {p.description && (
-                            <p className="mt-1 text-xs text-text-muted">
-                              {p.description}
-                            </p>
-                          )}
                         </div>
-                        <span className="whitespace-nowrap text-lg font-extrabold text-text-primary">
-                          {p.amount} {p.currency}
-                        </span>
+
+                        {/* 2) 상품이미지 (관리자 업로드 이미지, 없으면 대표 이미지) */}
+                        <div className="overflow-hidden rounded-md border border-border/60 bg-white">
+                          <img
+                            src={p.imageUrl || PRODUCT_THUMB}
+                            alt={p.name}
+                            loading="lazy"
+                            className="h-36 w-full object-cover object-top sm:h-44"
+                          />
+                        </div>
+
+                        {/* 3) 상품소개 */}
+                        {p.description && (
+                          <p className="text-sm leading-relaxed text-text-secondary">
+                            {p.description}
+                          </p>
+                        )}
+
+                        {/* 4) 가격 */}
+                        <div className="flex items-baseline justify-between border-t border-border/60 pt-3">
+                          <span className="text-xs font-semibold text-text-muted">
+                            {t("payment.priceLabel")}
+                          </span>
+                          <span className="text-xl font-extrabold text-accent">
+                            {p.amount} {p.currency}
+                          </span>
+                        </div>
                       </button>
                     );
                   })}
                 </div>
               ) : (
                 // Legacy env fallback (single product)
-                <div className="flex items-center justify-between gap-4 rounded border-2 border-accent/40 bg-[#fdf6e3] p-4">
-                  <div>
-                    <p className="font-bold text-text-primary">{dispName}</p>
-                    <p className="mt-1 text-xs text-text-muted">{dispDesc}</p>
+                <div className="flex flex-col gap-3 rounded-lg border-2 border-accent/40 bg-[#fdf6e3] p-4">
+                  {/* 1) 상품명 */}
+                  <p className="font-bold leading-snug text-text-primary">
+                    {dispName}
+                  </p>
+
+                  {/* 2) 상품이미지 */}
+                  <div className="overflow-hidden rounded-md border border-border/60 bg-white">
+                    <img
+                      src={PRODUCT_THUMB}
+                      alt={dispName}
+                      loading="lazy"
+                      className="h-36 w-full object-cover object-top sm:h-44"
+                    />
                   </div>
-                  <span className="whitespace-nowrap text-lg font-extrabold text-text-primary">
-                    {AMOUNT} {CURRENCY}
-                  </span>
+
+                  {/* 3) 상품소개 */}
+                  <p className="text-sm leading-relaxed text-text-secondary">
+                    {dispDesc}
+                  </p>
+
+                  {/* 4) 가격 */}
+                  <div className="flex items-baseline justify-between border-t border-accent/30 pt-3">
+                    <span className="text-xs font-semibold text-text-muted">
+                      {t("payment.priceLabel")}
+                    </span>
+                    <span className="text-xl font-extrabold text-accent">
+                      {AMOUNT} {CURRENCY}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

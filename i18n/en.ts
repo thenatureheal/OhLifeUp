@@ -25,6 +25,7 @@ const en: Translation = {
     card1Title: "What is BGI genetic analysis?",
     card1Desc:
       "We analyze each SNP genotype from BGI Raw Data and provide temperament (TCI), multiple intelligence (Gardner) and career (RIASEC) matching results.",
+    card1Cta: "View product details",
     card2Title: "1:1 Inquiry",
     card2Desc: "We promptly answer your questions about Hong Kong BGI GENOMICS application and payment.",
     card2Cta: "GO",
@@ -72,6 +73,14 @@ const en: Translation = {
     credNote:
       "* Your name and phone number act as a password when looking up your payment after checkout.",
     productLabel: "Select Analysis / Coaching Product",
+    priceLabel: "Price",
+    recentTitle: "Live application status",
+    recentNote: "Recent applicants (partially masked for privacy)",
+    recentJustNow: "just now",
+    recentMinAgo: "{{n}} min ago",
+    recentHourAgo: "{{n}} hr ago",
+    recentProductBulk: "BGI Bulk Genetic Analysis",
+    recentProductAllinone: "Talent·Personality·Health All-in-One",
     packageName: "BGI Bulk Genetic Analysis Package",
     packageDesc: "Trusted bulk genetic data analysis by Hong Kong BGI GENOMICS",
     needInfo: "Please enter your name and phone number to proceed with payment.",
