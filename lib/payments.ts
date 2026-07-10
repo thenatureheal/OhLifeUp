@@ -20,6 +20,9 @@ const DETAILS_COLLECTION = "paymentDetails";
 /** Lifecycle status of a payment. Refund/cancel are recorded by an admin. */
 export type PaymentStatus = "paid" | "refunded" | "cancelled";
 
+/** Which payment provider processed this payment. */
+export type PaymentProvider = "paypal" | "airwallex";
+
 export interface PaymentRecord {
   id: string;
   name: string;
@@ -30,13 +33,17 @@ export interface PaymentRecord {
   currency: string;
   packageName: string;
   status: PaymentStatus;
-  // Best-effort payment-source info from the PayPal capture response.
+  // Which provider processed the payment. Legacy docs have no field → "paypal".
+  provider: PaymentProvider;
+  // Best-effort payment-source info from the capture/intent response.
   // Card FULL number is never available (PCI) — only brand + last 4 digits.
   cardBrand: string;
   cardLast4: string;
+  // PayPal-only: payer's PayPal email (empty for Airwallex).
   paypalEmail: string;
-  // PayPal capture id — lets the webhook match refund/reversal events back to
-  // this payment and auto-sync its status.
+  // Provider transaction id used to match refund/reversal webhook events back to
+  // this payment and to trigger the real refund. PayPal → capture id; Airwallex
+  // → payment_intent id.
   captureId: string;
   createdAt: string | null;
 }
@@ -49,6 +56,7 @@ export interface NewPayment {
   amount: string;
   currency: string;
   packageName: string;
+  provider?: PaymentProvider;
   cardBrand?: string;
   cardLast4?: string;
   paypalEmail?: string;
@@ -99,6 +107,7 @@ export async function recordPayment(input: NewPayment): Promise<string> {
     currency: input.currency,
     packageName: input.packageName,
     status: "paid",
+    provider: input.provider ?? "paypal",
     cardBrand: (input.cardBrand ?? "").slice(0, 30),
     cardLast4: (input.cardLast4 ?? "").slice(0, 4),
     paypalEmail: (input.paypalEmail ?? "").slice(0, 200),
@@ -119,6 +128,7 @@ function mapPayment(id: string, data: Record<string, unknown>): PaymentRecord {
     currency: (data.currency as string) ?? "",
     packageName: (data.packageName as string) ?? "",
     status: (data.status as PaymentStatus) ?? "paid",
+    provider: (data.provider as PaymentProvider) ?? "paypal",
     cardBrand: (data.cardBrand as string) ?? "",
     cardLast4: (data.cardLast4 as string) ?? "",
     paypalEmail: (data.paypalEmail as string) ?? "",

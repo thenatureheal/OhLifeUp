@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { refundCapture, isPayPalServerConfigured } from "@/lib/paypal-server";
+import {
+  refundPaymentIntent,
+  isAirwallexServerConfigured,
+} from "@/lib/airwallex-server";
 
 // Admin-only: actually refund a payment on PayPal. The client sends the admin's
 // Firebase ID token; we verify it (and the email allowlist) server-side before
@@ -40,10 +44,13 @@ async function verifyAdmin(idToken: string): Promise<boolean> {
   }
 }
 
-/** Read a payment doc (public read) to get its real capture id + status. */
-async function getPayment(
-  paymentId: string
-): Promise<{ captureId: string; status: string } | null> {
+/** Read a payment doc (public read) to get its real capture id + status + provider. */
+async function getPayment(paymentId: string): Promise<{
+  captureId: string;
+  status: string;
+  provider: string;
+  amount: string;
+} | null> {
   const res = await fetch(`${FS_BASE}/payments/${paymentId}`, {
     cache: "no-store",
   });
@@ -55,17 +62,13 @@ async function getPayment(
   return {
     captureId: f.captureId?.stringValue ?? "",
     status: f.status?.stringValue ?? "",
+    // Legacy docs have no provider field → PayPal.
+    provider: f.provider?.stringValue ?? "paypal",
+    amount: f.amount?.stringValue ?? "",
   };
 }
 
 export async function POST(req: Request) {
-  if (!isPayPalServerConfigured) {
-    return NextResponse.json(
-      { ok: false, error: "PayPal이 서버에 설정되지 않았습니다." },
-      { status: 503 }
-    );
-  }
-
   let body: { paymentId?: string; idToken?: string } = {};
   try {
     body = await req.json();
@@ -99,7 +102,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         error:
-          "이 결제는 capture id가 없어 자동 환불이 불가합니다. PayPal에서 직접 환불해주세요.",
+          "이 결제는 거래 ID가 없어 자동 환불이 불가합니다. 결제사 대시보드에서 직접 환불해주세요.",
       },
       { status: 422 }
     );
@@ -111,8 +114,26 @@ export async function POST(req: Request) {
     );
   }
 
+  const isAirwallex = pay.provider === "airwallex";
+  if (isAirwallex && !isAirwallexServerConfigured) {
+    return NextResponse.json(
+      { ok: false, error: "Airwallex가 서버에 설정되지 않았습니다." },
+      { status: 503 }
+    );
+  }
+  if (!isAirwallex && !isPayPalServerConfigured) {
+    return NextResponse.json(
+      { ok: false, error: "PayPal이 서버에 설정되지 않았습니다." },
+      { status: 503 }
+    );
+  }
+
   try {
-    const refund = await refundCapture(pay.captureId);
+    // Route to the provider that actually processed this payment. captureId is
+    // the PayPal capture id or the Airwallex payment_intent id accordingly.
+    const refund = isAirwallex
+      ? await refundPaymentIntent(pay.captureId, pay.amount)
+      : await refundCapture(pay.captureId);
     return NextResponse.json(
       { ok: true, refundId: refund.id, status: refund.status },
       { status: 200 }
@@ -120,7 +141,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("[admin refund] failed:", err);
     return NextResponse.json(
-      { ok: false, error: "PayPal 환불 처리에 실패했습니다." },
+      { ok: false, error: "환불 처리에 실패했습니다." },
       { status: 500 }
     );
   }
