@@ -76,6 +76,36 @@
     display: block;
   }
 
+  /* ─── Content protection (deterrent) ──────────────────────────────
+     Block text selection & the iOS long-press callout site-wide, but keep
+     form fields fully usable so users can still type/paste. Paired with the
+     JS listeners in components/ContentGuard.tsx (right-click, copy, drag). */
+  body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input,
+  textarea,
+  select,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
+  /* Prevent image / link dragging. */
+  img,
+  a {
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    user-drag: none;
+  }
+
   a {
     text-decoration: none;
     color: inherit;

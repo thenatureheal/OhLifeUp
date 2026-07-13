@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import ContentGuard from "@/components/ContentGuard";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -24,6 +25,7 @@ export default function RootLayout({
     <html lang="ko" suppressHydrationWarning>
       <body>
         <Providers>
+          <ContentGuard />
           <Header />
           <main className="min-h-[60vh] pt-16">{children}</main>
           <Footer />

@@ -25,6 +25,7 @@ export interface Product {
   description: string;
   amount: string; // e.g. "122.00"
   currency: string; // e.g. "USD"
+  imageUrl: string; // data URL (inline) or external URL; "" when none
   active: boolean;
   sortOrder: number;
   createdAt: string | null;
@@ -35,6 +36,7 @@ export interface ProductInput {
   description: string;
   amount: string;
   currency: string;
+  imageUrl: string;
   active: boolean;
   sortOrder: number;
 }
@@ -51,6 +53,7 @@ function mapProduct(id: string, d: Record<string, unknown>): Product {
     description: (d.description as string) ?? "",
     amount: (d.amount as string) ?? "",
     currency: (d.currency as string) ?? "USD",
+    imageUrl: (d.imageUrl as string) ?? "",
     active: d.active !== false,
     sortOrder: typeof d.sortOrder === "number" ? d.sortOrder : 0,
     createdAt: toISO(d.createdAt),
@@ -98,6 +101,7 @@ export async function createProduct(input: ProductInput): Promise<string> {
     description: input.description.trim().slice(0, 1000),
     amount: input.amount,
     currency: input.currency.trim().slice(0, 10) || "USD",
+    imageUrl: input.imageUrl ?? "",
     active: input.active,
     sortOrder: input.sortOrder,
     createdAt: serverTimestamp(),
@@ -116,6 +120,7 @@ export async function updateProduct(
     description: input.description.trim().slice(0, 1000),
     amount: input.amount,
     currency: input.currency.trim().slice(0, 10) || "USD",
+    imageUrl: input.imageUrl ?? "",
     active: input.active,
     sortOrder: input.sortOrder,
     updatedAt: serverTimestamp(),
