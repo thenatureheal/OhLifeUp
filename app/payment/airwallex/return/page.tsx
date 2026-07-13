@@ -127,7 +127,10 @@ export default function AirwallexReturnPage() {
               <div className="text-4xl">✅</div>
               <h2 className="h3 mt-3">결제가 완료되었습니다</h2>
               <p className="mt-2 text-sm text-text-secondary">
-                주문번호: <span className="font-mono">{view.orderId}</span>
+                주문번호:{" "}
+                <span className="select-text font-mono" style={{ userSelect: "text" }}>
+                  {view.orderId}
+                </span>
               </p>
               <p className="mt-1 text-xs text-text-muted">
                 결제 내역은 결제 페이지의 “내 결제 조회”에서 이름·연락처로 확인하실 수 있습니다.

@@ -29,6 +29,13 @@ const isPayPalConfigured = CLIENT_ID.length > 0;
 // Display-only flag (server enforces the real env). "sandbox" unless explicitly live.
 const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV || "sandbox") !== "live";
 
+// We switched the primary card method to Airwallex. The PayPal button is hidden
+// but ALL PayPal code (buttons/server routes/admin refund) is kept so past
+// PayPal payments can still be refunded. Flip this to true to re-enable the
+// button, or set NEXT_PUBLIC_SHOW_PAYPAL=true in the environment.
+const SHOW_PAYPAL =
+  isPayPalConfigured && process.env.NEXT_PUBLIC_SHOW_PAYPAL === "true";
+
 // Airwallex (Hosted Payment Page). The server holds the real keys; the client
 // only needs the env to load airwallex.js. Button shows when the env is set.
 const AIRWALLEX_ENV = (process.env.NEXT_PUBLIC_AIRWALLEX_ENV || "") as
@@ -408,8 +415,10 @@ export default function PackagePay() {
             <p className="mt-4 text-sm text-red-600">{t("payment.error")}</p>
           )}
 
-          {/* PayPal + card buttons (order created & captured server-side) */}
-          {payStatus.kind !== "success" && (
+          {/* PayPal + card buttons (order created & captured server-side).
+              Hidden by default (SHOW_PAYPAL) — Airwallex is the primary method —
+              but kept intact for refunding past PayPal payments. */}
+          {SHOW_PAYPAL && payStatus.kind !== "success" && (
             <div className="mt-6">
               {!isPayPalConfigured ? (
                 <p className="text-sm text-text-muted">
@@ -525,11 +534,12 @@ export default function PackagePay() {
             </div>
           )}
 
-          {/* Airwallex — card payment via Hosted Payment Page (redirect) */}
+          {/* Airwallex — card payment via Hosted Payment Page (redirect).
+              Primary card method. */}
           {payStatus.kind !== "success" && isAirwallexConfigured && (
-            <div className="mt-4 border-t border-border pt-5">
+            <div className={SHOW_PAYPAL ? "mt-4 border-t border-border pt-5" : "mt-6"}>
               <p className="mb-3 text-center text-xs font-bold text-text-muted">
-                {isPayPalConfigured ? "또는 카드로 결제" : "카드로 결제"}
+                {SHOW_PAYPAL ? "또는 카드로 결제" : "카드로 결제"}
               </p>
               {awxError && (
                 <p className="mb-2 text-center text-sm text-red-600">
@@ -556,6 +566,15 @@ export default function PackagePay() {
               )}
             </div>
           )}
+
+          {/* No payment method available (neither Airwallex nor PayPal shown). */}
+          {payStatus.kind !== "success" &&
+            !isAirwallexConfigured &&
+            !SHOW_PAYPAL && (
+              <p className="mt-6 text-sm text-text-muted">
+                {t("payment.notConfigured")}
+              </p>
+            )}
         </div>
 
         {/* ── Lookup card ── */}
