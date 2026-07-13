@@ -154,7 +154,7 @@ export default function AdminProductsPage() {
         <div>
           <h1 className="h2">상품 관리</h1>
           <p className="mt-2 text-sm text-text-muted">
-            PayPal 결제 상품과 금액을 등록·수정합니다. 실제 청구 금액은 서버가 이
+            결제 상품과 금액을 등록·수정합니다. 실제 청구 금액은 서버가 이
             값으로 처리합니다.
           </p>
         </div>

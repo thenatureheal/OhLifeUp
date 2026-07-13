@@ -15,8 +15,8 @@ const COLLECTION = "products";
 
 /**
  * A purchasable product shown on the payment page. The `amount` is the price
- * PayPal charges — the SERVER reads it from Firestore at order-creation time
- * (see app/api/paypal/orders/route.ts) so the charged amount can't be tampered
+ * the payment charges — the SERVER reads it from Firestore at intent-creation
+ * time (see app/api/airwallex/intents/route.ts) so the amount can't be tampered
  * with from the browser. Only admins can write (see firestore.rules).
  */
 export interface Product {

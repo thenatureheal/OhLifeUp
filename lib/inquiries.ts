@@ -66,7 +66,7 @@ export async function createInquiry(input: NewInquiry): Promise<string> {
 /**
  * Customer-initiated refund/cancel request. Recorded as a "refund" inquiry so
  * the admin can see + reply to it in the same 문의 관리 screen, then process the
- * actual refund in PayPal and flip the payment status.
+ * actual refund with the payment provider and flip the payment status.
  */
 export async function createRefundRequest(input: {
   name: string;

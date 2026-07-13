@@ -16,7 +16,7 @@ const en: Translation = {
     feature3: "Hong Kong BGI GENOMICS",
     feature4: "Care for your life with large-scale genetic analysis data",
     payCardTitle: "Secure Online Payment",
-    payCardSubtitle: "PayPal · Credit card in real time",
+    payCardSubtitle: "Credit card in real time",
     payCardDesc:
       "Apply quickly and securely, then look up your payment transparently with just your name and phone number after checkout.",
     payCardCta: "Apply & Pay",
@@ -62,8 +62,8 @@ const en: Translation = {
   payment: {
     label: "PAYMENT SERVICE",
     sectionTitle: "Apply & Secure Payment",
-    sectionSubtitle: "Use easy PayPal checkout and a secure database lookup system.",
-    formTitle: "Credit Card & PayPal Application",
+    sectionSubtitle: "Use easy card checkout and a secure database lookup system.",
+    formTitle: "Credit Card Application",
     nameLabel: "Name",
     namePlaceholder: "Enter your name",
     phoneLabel: "Phone Number",
@@ -84,8 +84,8 @@ const en: Translation = {
     packageName: "BGI Bulk Genetic Analysis Package",
     packageDesc: "Trusted bulk genetic data analysis by Hong Kong BGI GENOMICS",
     needInfo: "Please enter your name and phone number to proceed with payment.",
-    notConfigured: "PayPal payment is not set up yet. Please try again later or contact the administrator.",
-    poweredBy: "Powered by PayPal",
+    notConfigured: "Card payment is not ready yet. Please try again later or contact the administrator.",
+    poweredBy: "Powered by Airwallex",
     sandboxNotice: "This is currently in test (Sandbox) mode. No real charge will be made.",
     success: "Payment complete",
     successMsg: "Your application has been received. Order ID: {{id}}",
@@ -116,7 +116,7 @@ const en: Translation = {
     refundRequested:
       "Your cancel/refund request has been received. We'll process it after review.",
     refundGuide:
-      "Refunds are returned to the original payment method (card/PayPal), typically within 3-5 business days of the request.",
+      "Refunds are returned to the original payment method (card), typically within 3-5 business days of the request.",
     refundError: "Something went wrong. Please try again shortly.",
   },
   contact: {

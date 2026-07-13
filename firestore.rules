@@ -11,8 +11,9 @@ service cloud.firestore {
     // ⚠ 이 목록은 lib/admin.ts 의 ADMIN_EMAILS / NEXT_PUBLIC_ADMIN_EMAILS 와
     //    반드시 동일하게 유지하세요. 관리자를 추가하려면 여기에 이메일을 추가합니다.
     // thenatureheal@gmail.com = 사람 관리자.
-    // paypal-webhook@ohlifeup.com = PayPal 웹훅 서버가 결제/환불/취소 상태를
+    // paypal-webhook@ohlifeup.com = 결제 웹훅(Airwallex)이 환불/취소 상태를
     //   자동 동기화하기 위해 로그인하는 전용 서비스 계정(사람은 사용 안 함).
+    //   ※ 계정명에 'paypal'이 남아 있으나 재프로비저닝 없이 그대로 사용.
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email != null
@@ -31,8 +32,8 @@ service cloud.firestore {
 
     function isValidPayment() {
       let d = request.resource.data;
-      // 'provider' 는 선택 필드(레거시 PayPal 결제 문서엔 없음). 있으면 값 검증.
-      return d.keys().hasOnly(['name', 'phone', 'email', 'orderId', 'amount', 'currency', 'packageName', 'status', 'provider', 'cardBrand', 'cardLast4', 'paypalEmail', 'captureId', 'createdAt'])
+      // 'provider' 는 선택 필드(레거시 결제 문서엔 없음). 있으면 값 검증.
+      return d.keys().hasOnly(['name', 'phone', 'email', 'orderId', 'amount', 'currency', 'packageName', 'status', 'provider', 'cardBrand', 'cardLast4', 'captureId', 'createdAt'])
         && d.name is string && d.name.size() >= 1 && d.name.size() <= 100
         && d.phone is string && d.phone.size() >= 1 && d.phone.size() <= 30
         && d.email is string && d.email.size() <= 200
@@ -44,7 +45,6 @@ service cloud.firestore {
         && (!d.keys().hasAny(['provider']) || d.provider in ['paypal', 'airwallex'])
         && d.cardBrand is string && d.cardBrand.size() <= 30
         && d.cardLast4 is string && d.cardLast4.size() <= 4
-        && d.paypalEmail is string && d.paypalEmail.size() <= 200
         && d.captureId is string && d.captureId.size() <= 100
         && d.createdAt == request.time;
     }

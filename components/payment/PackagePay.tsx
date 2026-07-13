@@ -2,13 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { isFirebaseConfigured } from "@/lib/firebase";
-import {
-  recordPayment,
-  lookupPayments,
-  type PaymentRecord,
-} from "@/lib/payments";
+import { lookupPayments, type PaymentRecord } from "@/lib/payments";
 import { createNotification } from "@/lib/notifications";
 import { createRefundRequest } from "@/lib/inquiries";
 import { listActiveProducts, type Product } from "@/lib/products";
@@ -19,22 +14,11 @@ import RecentApplicants from "./RecentApplicants";
 // first detail image from the landing page).
 const PRODUCT_THUMB = "/products/allinone/01.png";
 
-// Client id renders the buttons (public). Order creation & capture happen on
-// our server (/api/paypal/*), which controls the real amount. Sandbox vs live is
-// determined by which client id + secret you configure (see docs/PAYPAL_SETUP.md).
-const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
-const AMOUNT = process.env.NEXT_PUBLIC_PAYPAL_AMOUNT || "122.00";
-const CURRENCY = process.env.NEXT_PUBLIC_PAYPAL_CURRENCY || "USD";
-const isPayPalConfigured = CLIENT_ID.length > 0;
-// Display-only flag (server enforces the real env). "sandbox" unless explicitly live.
-const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV || "sandbox") !== "live";
-
-// We switched the primary card method to Airwallex. The PayPal button is hidden
-// but ALL PayPal code (buttons/server routes/admin refund) is kept so past
-// PayPal payments can still be refunded. Flip this to true to re-enable the
-// button, or set NEXT_PUBLIC_SHOW_PAYPAL=true in the environment.
-const SHOW_PAYPAL =
-  isPayPalConfigured && process.env.NEXT_PUBLIC_SHOW_PAYPAL === "true";
+// Display fallback price used only when no admin-managed product exists (the
+// server controls the real charged amount via AIRWALLEX_AMOUNT). Production has
+// products, so this fallback is not normally shown.
+const FALLBACK_AMOUNT = "0.00";
+const FALLBACK_CURRENCY = "USD";
 
 // Airwallex (Hosted Payment Page). The server holds the real keys; the client
 // only needs the env to load airwallex.js. Button shows when the env is set.
@@ -85,11 +69,11 @@ export default function PackagePay() {
   const selected = products.find((p) => p.id === selectedId) ?? null;
   const hasProducts = products.length > 0;
 
-  // Effective display/charge values: selected product, else env fallback.
+  // Effective display/charge values: selected product, else fallback.
   const dispName = selected?.name ?? t("payment.packageName");
   const dispDesc = selected?.description ?? t("payment.packageDesc");
-  const dispAmount = selected?.amount ?? AMOUNT;
-  const dispCurrency = selected?.currency ?? CURRENCY;
+  const dispAmount = selected?.amount ?? FALLBACK_AMOUNT;
+  const dispCurrency = selected?.currency ?? FALLBACK_CURRENCY;
 
   const canPay =
     form.name.trim().length > 0 &&
@@ -387,17 +371,13 @@ export default function PackagePay() {
                       {t("payment.priceLabel")}
                     </span>
                     <span className="text-xl font-extrabold text-accent">
-                      {AMOUNT} {CURRENCY}
+                      {FALLBACK_AMOUNT} {FALLBACK_CURRENCY}
                     </span>
                   </div>
                 </div>
               )}
             </div>
           </div>
-
-          {IS_SANDBOX && (
-            <p className="mt-4 text-xs text-accent">{t("payment.sandboxNotice")}</p>
-          )}
 
           {/* Result messages */}
           {payStatus.kind === "success" && (
@@ -415,131 +395,11 @@ export default function PackagePay() {
             <p className="mt-4 text-sm text-red-600">{t("payment.error")}</p>
           )}
 
-          {/* PayPal + card buttons (order created & captured server-side).
-              Hidden by default (SHOW_PAYPAL) — Airwallex is the primary method —
-              but kept intact for refunding past PayPal payments. */}
-          {SHOW_PAYPAL && payStatus.kind !== "success" && (
-            <div className="mt-6">
-              {!isPayPalConfigured ? (
-                <p className="text-sm text-text-muted">
-                  {t("payment.notConfigured")}
-                </p>
-              ) : (
-                <>
-                  {!canPay && (
-                    <p className="mb-3 text-sm text-text-muted">
-                      {t("payment.needInfo")}
-                    </p>
-                  )}
-                  <div className={canPay ? "" : "pointer-events-none opacity-40"}>
-                    <PayPalScriptProvider
-                      key={dispCurrency}
-                      options={{
-                        clientId: CLIENT_ID,
-                        currency: dispCurrency,
-                        components: "buttons",
-                        intent: "capture",
-                      }}
-                    >
-                      <PayPalButtons
-                        forceReRender={[canPay, dispCurrency, dispAmount, selectedId]}
-                        disabled={!canPay}
-                        style={{ layout: "vertical", shape: "rect", label: "pay" }}
-                        createOrder={async () => {
-                          const res = await fetch("/api/paypal/orders", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(
-                              selected ? { productId: selected.id } : {}
-                            ),
-                          });
-                          const data = await res.json();
-                          if (!res.ok || !data.id) {
-                            throw new Error(data.error || "create order failed");
-                          }
-                          return data.id as string;
-                        }}
-                        onApprove={async (data) => {
-                          try {
-                            const res = await fetch(
-                              `/api/paypal/orders/${data.orderID}/capture`,
-                              { method: "POST" }
-                            );
-                            const result = await res.json();
-                            if (!res.ok || result.status !== "COMPLETED") {
-                              throw new Error(result.error || "capture failed");
-                            }
-                            const orderId = result.id ?? data.orderID ?? "";
-                            // Best-effort payment-source info (card brand/last4,
-                            // PayPal email) — present only when PayPal returns it.
-                            const src = result?.payment_source ?? {};
-                            const card = src?.card ?? {};
-                            const cardBrand = card?.brand ?? "";
-                            const cardLast4 = card?.last_digits ?? "";
-                            const paypalEmail =
-                              src?.paypal?.email_address ??
-                              result?.payer?.email_address ??
-                              "";
-                            const captureId =
-                              result?.purchase_units?.[0]?.payments
-                                ?.captures?.[0]?.id ?? "";
-                            if (isFirebaseConfigured) {
-                              try {
-                                const paymentId = await recordPayment({
-                                  name: form.name,
-                                  phone: form.phone,
-                                  email: form.email,
-                                  orderId,
-                                  amount: dispAmount,
-                                  currency: dispCurrency,
-                                  packageName: dispName,
-                                  cardBrand,
-                                  cardLast4,
-                                  paypalEmail,
-                                  captureId,
-                                });
-                                try {
-                                  await createNotification(
-                                    "payment",
-                                    `새 결제: ${form.name.trim()}`,
-                                    `${dispName} · ${dispAmount} ${dispCurrency} (주문 ${orderId})`,
-                                    paymentId
-                                  );
-                                } catch (e) {
-                                  console.error("payment notification failed", e);
-                                }
-                              } catch (e) {
-                                console.error("recordPayment failed", e);
-                              }
-                            }
-                            setPayStatus({ kind: "success", orderId });
-                          } catch (err) {
-                            console.error(err);
-                            setPayStatus({ kind: "error" });
-                          }
-                        }}
-                        onCancel={() => setPayStatus({ kind: "cancelled" })}
-                        onError={(err) => {
-                          console.error(err);
-                          setPayStatus({ kind: "error" });
-                        }}
-                      />
-                    </PayPalScriptProvider>
-                  </div>
-                  <p className="mt-2 text-center text-xs text-text-muted">
-                    {t("payment.poweredBy")}
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Airwallex — card payment via Hosted Payment Page (redirect).
-              Primary card method. */}
+          {/* Airwallex — card payment via Hosted Payment Page (redirect). */}
           {payStatus.kind !== "success" && isAirwallexConfigured && (
-            <div className={SHOW_PAYPAL ? "mt-4 border-t border-border pt-5" : "mt-6"}>
+            <div className="mt-6">
               <p className="mb-3 text-center text-xs font-bold text-text-muted">
-                {SHOW_PAYPAL ? "또는 카드로 결제" : "카드로 결제"}
+                카드로 결제
               </p>
               {awxError && (
                 <p className="mb-2 text-center text-sm text-red-600">
@@ -567,14 +427,12 @@ export default function PackagePay() {
             </div>
           )}
 
-          {/* No payment method available (neither Airwallex nor PayPal shown). */}
-          {payStatus.kind !== "success" &&
-            !isAirwallexConfigured &&
-            !SHOW_PAYPAL && (
-              <p className="mt-6 text-sm text-text-muted">
-                {t("payment.notConfigured")}
-              </p>
-            )}
+          {/* No payment method available (Airwallex not configured). */}
+          {payStatus.kind !== "success" && !isAirwallexConfigured && (
+            <p className="mt-6 text-sm text-text-muted">
+              {t("payment.notConfigured")}
+            </p>
+          )}
         </div>
 
         {/* ── Lookup card ── */}

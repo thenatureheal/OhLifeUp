@@ -252,10 +252,10 @@ export default function AdminPaymentsPage() {
                     <td className="whitespace-nowrap text-xs">
                       {r.cardBrand || r.cardLast4
                         ? `${r.cardBrand || "카드"} ****${r.cardLast4 || "----"}`
-                        : r.paypalEmail
-                          ? `PayPal (${r.paypalEmail})`
-                          : r.provider === "airwallex"
-                            ? "Airwallex"
+                        : r.provider === "airwallex"
+                          ? "Airwallex"
+                          : r.provider === "paypal"
+                            ? "PayPal"
                             : "-"}
                     </td>
                     <td>

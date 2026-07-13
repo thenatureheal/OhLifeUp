@@ -20,7 +20,8 @@ const DETAILS_COLLECTION = "paymentDetails";
 /** Lifecycle status of a payment. Refund/cancel are recorded by an admin. */
 export type PaymentStatus = "paid" | "refunded" | "cancelled";
 
-/** Which payment provider processed this payment. */
+// Which provider processed this payment. New payments are always "airwallex";
+// "paypal" is kept only so legacy documents read correctly.
 export type PaymentProvider = "paypal" | "airwallex";
 
 export interface PaymentRecord {
@@ -35,15 +36,12 @@ export interface PaymentRecord {
   status: PaymentStatus;
   // Which provider processed the payment. Legacy docs have no field → "paypal".
   provider: PaymentProvider;
-  // Best-effort payment-source info from the capture/intent response.
+  // Best-effort payment-source info from the intent response.
   // Card FULL number is never available (PCI) — only brand + last 4 digits.
   cardBrand: string;
   cardLast4: string;
-  // PayPal-only: payer's PayPal email (empty for Airwallex).
-  paypalEmail: string;
   // Provider transaction id used to match refund/reversal webhook events back to
-  // this payment and to trigger the real refund. PayPal → capture id; Airwallex
-  // → payment_intent id.
+  // this payment and to trigger the real refund (Airwallex → payment_intent id).
   captureId: string;
   createdAt: string | null;
 }
@@ -59,7 +57,6 @@ export interface NewPayment {
   provider?: PaymentProvider;
   cardBrand?: string;
   cardLast4?: string;
-  paypalEmail?: string;
   captureId?: string;
 }
 
@@ -94,7 +91,7 @@ function toISO(value: unknown): string | null {
 
 /**
  * Record a completed payment so the buyer can later look it up by name + phone.
- * Called from onApprove after the PayPal order is captured. The phone is
+ * Called from the Airwallex return page after the payment succeeds. The phone is
  * normalized to digits before storing.
  */
 export async function recordPayment(input: NewPayment): Promise<string> {
@@ -107,10 +104,9 @@ export async function recordPayment(input: NewPayment): Promise<string> {
     currency: input.currency,
     packageName: input.packageName,
     status: "paid",
-    provider: input.provider ?? "paypal",
+    provider: input.provider ?? "airwallex",
     cardBrand: (input.cardBrand ?? "").slice(0, 30),
     cardLast4: (input.cardLast4 ?? "").slice(0, 4),
-    paypalEmail: (input.paypalEmail ?? "").slice(0, 200),
     captureId: (input.captureId ?? "").slice(0, 100),
     createdAt: serverTimestamp(),
   });
@@ -131,7 +127,6 @@ function mapPayment(id: string, data: Record<string, unknown>): PaymentRecord {
     provider: (data.provider as PaymentProvider) ?? "paypal",
     cardBrand: (data.cardBrand as string) ?? "",
     cardLast4: (data.cardLast4 as string) ?? "",
-    paypalEmail: (data.paypalEmail as string) ?? "",
     captureId: (data.captureId as string) ?? "",
     createdAt: toISO(data.createdAt),
   };

@@ -1,7 +1,7 @@
-// Server-only. Lets the PayPal webhook write to Firestore by signing in as the
-// dedicated webhook account (paypal-webhook@ohlifeup.com, which is on the admin
-// allowlist in firestore.rules) and using the Firestore REST API with that ID
-// token — so the writes are still governed by security rules (no Admin SDK /
+// Server-only. Lets the Airwallex webhook write to Firestore by signing in as the
+// dedicated webhook account (paypal-webhook@ohlifeup.com — legacy name, kept as-is;
+// on the admin allowlist in firestore.rules) and using the Firestore REST API with
+// that ID token — so the writes are still governed by security rules (no Admin SDK /
 // service-account key needed). Imported ONLY by the webhook route.
 
 import type { PaymentStatus } from "./payments";
