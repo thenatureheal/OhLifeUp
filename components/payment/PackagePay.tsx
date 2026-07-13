@@ -29,6 +29,22 @@ const isPayPalConfigured = CLIENT_ID.length > 0;
 // Display-only flag (server enforces the real env). "sandbox" unless explicitly live.
 const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV || "sandbox") !== "live";
 
+// We switched the primary card method to Airwallex. The PayPal button is hidden
+// but ALL PayPal code (buttons/server routes/admin refund) is kept so past
+// PayPal payments can still be refunded. Flip this to true to re-enable the
+// button, or set NEXT_PUBLIC_SHOW_PAYPAL=true in the environment.
+const SHOW_PAYPAL =
+  isPayPalConfigured && process.env.NEXT_PUBLIC_SHOW_PAYPAL === "true";
+
+// Airwallex (Hosted Payment Page). The server holds the real keys; the client
+// only needs the env to load airwallex.js. Button shows when the env is set.
+const AIRWALLEX_ENV = (process.env.NEXT_PUBLIC_AIRWALLEX_ENV || "") as
+  | ""
+  | "demo"
+  | "prod";
+const isAirwallexConfigured = AIRWALLEX_ENV === "demo" || AIRWALLEX_ENV === "prod";
+const AIRWALLEX_IS_SANDBOX = AIRWALLEX_ENV !== "prod";
+
 type PayStatus =
   | { kind: "idle" }
   | { kind: "success"; orderId: string }
@@ -79,6 +95,65 @@ export default function PackagePay() {
     form.name.trim().length > 0 &&
     form.phone.trim().length > 0 &&
     (!hasProducts || Boolean(selected));
+
+  // ── Airwallex (Hosted Payment Page redirect) ──
+  const [awxBusy, setAwxBusy] = useState(false);
+  const [awxError, setAwxError] = useState(false);
+
+  const payWithAirwallex = async () => {
+    setAwxError(false);
+    setAwxBusy(true);
+    try {
+      // 1) Create the PaymentIntent server-side (amount controlled by server).
+      const res = await fetch("/api/airwallex/intents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          selected
+            ? { productId: selected.id, packageName: dispName }
+            : { packageName: dispName }
+        ),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.id || !data.clientSecret) {
+        throw new Error(data.error || "intent failed");
+      }
+
+      // 2) Stash buyer info so the return page can record the payment after the
+      //    redirect round-trip (sessionStorage survives the same-tab redirect).
+      sessionStorage.setItem(
+        "awx_pending",
+        JSON.stringify({
+          intentId: data.id,
+          name: form.name.trim(),
+          phone: form.phone,
+          email: form.email.trim(),
+          packageName: dispName,
+        })
+      );
+
+      // 3) Redirect to the Airwallex hosted payment page.
+      const { loadAirwallex, redirectToCheckout } = await import(
+        "airwallex-payment-elements"
+      );
+      await loadAirwallex({ env: AIRWALLEX_ENV as "demo" | "prod" });
+      const origin = window.location.origin;
+      redirectToCheckout({
+        env: AIRWALLEX_ENV as "demo" | "prod",
+        intent_id: data.id,
+        client_secret: data.clientSecret,
+        currency: data.currency,
+        country_code: "KR",
+        successUrl: `${origin}/payment/airwallex/return`,
+        failUrl: `${origin}/payment/airwallex/return`,
+      });
+      // Navigation happens here — no need to reset busy on success.
+    } catch (e) {
+      console.error(e);
+      setAwxError(true);
+      setAwxBusy(false);
+    }
+  };
 
   // ── Payment lookup ──
   const [lookup, setLookup] = useState({ name: "", phone: "" });
@@ -340,8 +415,10 @@ export default function PackagePay() {
             <p className="mt-4 text-sm text-red-600">{t("payment.error")}</p>
           )}
 
-          {/* PayPal + card buttons (order created & captured server-side) */}
-          {payStatus.kind !== "success" && (
+          {/* PayPal + card buttons (order created & captured server-side).
+              Hidden by default (SHOW_PAYPAL) — Airwallex is the primary method —
+              but kept intact for refunding past PayPal payments. */}
+          {SHOW_PAYPAL && payStatus.kind !== "success" && (
             <div className="mt-6">
               {!isPayPalConfigured ? (
                 <p className="text-sm text-text-muted">
@@ -456,6 +533,48 @@ export default function PackagePay() {
               )}
             </div>
           )}
+
+          {/* Airwallex — card payment via Hosted Payment Page (redirect).
+              Primary card method. */}
+          {payStatus.kind !== "success" && isAirwallexConfigured && (
+            <div className={SHOW_PAYPAL ? "mt-4 border-t border-border pt-5" : "mt-6"}>
+              <p className="mb-3 text-center text-xs font-bold text-text-muted">
+                {SHOW_PAYPAL ? "또는 카드로 결제" : "카드로 결제"}
+              </p>
+              {awxError && (
+                <p className="mb-2 text-center text-sm text-red-600">
+                  결제창을 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={payWithAirwallex}
+                disabled={!canPay || awxBusy}
+                className="btn btn-gold w-full disabled:opacity-40"
+              >
+                {awxBusy ? "결제창 여는 중…" : "💳 카드로 결제하기"}
+              </button>
+              {!canPay && (
+                <p className="mt-2 text-center text-sm text-text-muted">
+                  {t("payment.needInfo")}
+                </p>
+              )}
+              {AIRWALLEX_IS_SANDBOX && (
+                <p className="mt-2 text-center text-xs text-accent">
+                  테스트(샌드박스) 모드입니다. 실제 결제가 청구되지 않습니다.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* No payment method available (neither Airwallex nor PayPal shown). */}
+          {payStatus.kind !== "success" &&
+            !isAirwallexConfigured &&
+            !SHOW_PAYPAL && (
+              <p className="mt-6 text-sm text-text-muted">
+                {t("payment.notConfigured")}
+              </p>
+            )}
         </div>
 
         {/* ── Lookup card ── */}
