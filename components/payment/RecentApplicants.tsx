@@ -3,7 +3,7 @@
 import { useTranslation } from "react-i18next";
 
 /**
- * Social-proof ticker: recent PayPal applicants sliding continuously upward.
+ * Social-proof ticker: recent applicants sliding continuously upward.
  * Names/contacts are masked for privacy. The data is a curated sample list
  * (the public payment page can't read the admin-only `payments` collection),
  * so it stays static — no Date/random at render → no hydration mismatch.

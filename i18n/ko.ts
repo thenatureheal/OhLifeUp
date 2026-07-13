@@ -14,7 +14,7 @@ const ko = {
     feature3: "홍콩 BGI GENOMICS",
     feature4: "대량 유전자분석데이터로 당신의 인생을 케어해 보세요",
     payCardTitle: "온라인 안전 결제 시스템",
-    payCardSubtitle: "PayPal · 신용카드 실시간 연동",
+    payCardSubtitle: "신용카드 실시간 결제",
     payCardDesc:
       "지금 클릭하여 빠르고 안전하게 신청을 진행하고, 결제 완료 후 이름과 핸드폰 번호만으로 결제 내역을 투명하게 조회해보세요.",
     payCardCta: "신청 및 결제하기",
@@ -61,7 +61,7 @@ const ko = {
     label: "PAYMENT SERVICE",
     sectionTitle: "신청 및 안전 결제",
     sectionSubtitle: "간편한 페이팔 결제와 안전한 데이터베이스 조회 시스템을 이용해보세요.",
-    formTitle: "신용카드 및 PayPal 결제 신청",
+    formTitle: "신용카드 결제 신청",
     nameLabel: "이름",
     namePlaceholder: "성함을 입력하세요",
     phoneLabel: "휴대폰 번호",
@@ -81,8 +81,8 @@ const ko = {
     packageName: "BGI 대량유전자분석 패키지",
     packageDesc: "홍콩 BGI GENOMICS의 신뢰할 수 있는 대량 유전자 데이터 분석",
     needInfo: "결제를 진행하려면 이름과 휴대폰 번호를 입력해주세요.",
-    notConfigured: "PayPal 결제가 아직 설정되지 않았습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.",
-    poweredBy: "제공: PayPal",
+    notConfigured: "결제가 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.",
+    poweredBy: "제공: Airwallex",
     sandboxNotice: "현재 테스트(Sandbox) 모드입니다. 실제 결제가 청구되지 않습니다.",
     success: "결제가 완료되었습니다",
     successMsg: "신청이 정상 접수되었습니다. 주문번호: {{id}}",
@@ -112,7 +112,7 @@ const ko = {
     refundClose: "닫기",
     refundRequested: "환불·취소 신청이 접수되었습니다. 확인 후 처리해 드리겠습니다.",
     refundGuide:
-      "환불은 원결제수단(카드/PayPal)으로 처리되며, 신청 후 영업일 기준 3~5일 내 처리됩니다.",
+      "환불은 원결제수단(카드)으로 처리되며, 신청 후 영업일 기준 3~5일 내 처리됩니다.",
     refundError: "신청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
   },
   contact: {

@@ -8,9 +8,9 @@ import { syncPaymentStatus, isWebhookWriterConfigured } from "@/lib/webhook-writ
 // Airwallex webhook receiver. Airwallex POSTs payment/refund events here; we
 // verify the HMAC signature, then auto-sync the matching payment's status in
 // Firestore (refund → "refunded", cancel → "cancelled"). This keeps our records
-// in step with Airwallex without manual status changes — the same role the
-// PayPal webhook plays. The payment itself is recorded on the return page at
-// checkout, so this route does not create payments, only syncs status.
+// in step with Airwallex without manual status changes. The payment itself is
+// recorded on the return page at checkout, so this route does not create
+// payments, only syncs status.
 //
 // Setup: register this URL (https://<domain>/api/airwallex/webhook) in the
 // Airwallex dashboard (Developer → Webhooks), then set AIRWALLEX_WEBHOOK_SECRET

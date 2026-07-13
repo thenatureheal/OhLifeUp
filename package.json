@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@paypal/react-paypal-js": "^8.8.2",
     "airwallex-payment-elements": "^1.160.0",
     "firebase": "^11.3.1",
     "i18next": "^24.2.2",

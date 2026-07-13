@@ -9,7 +9,7 @@ import { useEffect } from "react";
  *
  * NOTE: this is a DETERRENT, not real security — anyone can still read the HTML
  * via devtools or "view-source:". Never rely on it to protect secrets; the
- * server (PayPal amounts, admin data) already enforces the real boundaries.
+ * server (payment amounts, admin data) already enforces the real boundaries.
  *
  * Form fields stay fully usable: any event originating inside an input/textarea/
  * select/contenteditable is allowed through, so typing, pasting, and copying an

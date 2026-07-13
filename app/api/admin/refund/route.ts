@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { refundCapture, isPayPalServerConfigured } from "@/lib/paypal-server";
 import {
   refundPaymentIntent,
   isAirwallexServerConfigured,
 } from "@/lib/airwallex-server";
 
-// Admin-only: actually refund a payment on PayPal. The client sends the admin's
+// Admin-only: actually refund an Airwallex payment. The client sends the admin's
 // Firebase ID token; we verify it (and the email allowlist) server-side before
-// touching PayPal. The capture id is read from Firestore (not trusted from the
-// client) so an admin can only refund the real capture behind that payment.
+// touching Airwallex. The payment_intent id is read from Firestore (not trusted
+// from the client) so an admin can only refund the real intent behind that
+// payment. Legacy PayPal rows are not auto-refundable (refund in PayPal directly).
 
 const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "";
 const PROJECT = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "";
@@ -114,26 +114,28 @@ export async function POST(req: Request) {
     );
   }
 
-  const isAirwallex = pay.provider === "airwallex";
-  if (isAirwallex && !isAirwallexServerConfigured) {
+  // Only Airwallex payments are auto-refundable. Legacy PayPal rows (provider
+  // 'paypal' or absent) must be refunded manually in the PayPal dashboard.
+  if (pay.provider !== "airwallex") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "이 결제는 자동 환불이 불가합니다 (구 PayPal 결제). PayPal 대시보드에서 직접 환불해주세요.",
+      },
+      { status: 422 }
+    );
+  }
+  if (!isAirwallexServerConfigured) {
     return NextResponse.json(
       { ok: false, error: "Airwallex가 서버에 설정되지 않았습니다." },
       { status: 503 }
     );
   }
-  if (!isAirwallex && !isPayPalServerConfigured) {
-    return NextResponse.json(
-      { ok: false, error: "PayPal이 서버에 설정되지 않았습니다." },
-      { status: 503 }
-    );
-  }
 
   try {
-    // Route to the provider that actually processed this payment. captureId is
-    // the PayPal capture id or the Airwallex payment_intent id accordingly.
-    const refund = isAirwallex
-      ? await refundPaymentIntent(pay.captureId, pay.amount)
-      : await refundCapture(pay.captureId);
+    // captureId holds the Airwallex payment_intent id.
+    const refund = await refundPaymentIntent(pay.captureId, pay.amount);
     return NextResponse.json(
       { ok: true, refundId: refund.id, status: refund.status },
       { status: 200 }

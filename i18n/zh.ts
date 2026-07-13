@@ -16,7 +16,7 @@ const zh: Translation = {
     feature3: "香港 BGI GENOMICS",
     feature4: "用大规模基因分析数据呵护您的人生",
     payCardTitle: "在线安全支付系统",
-    payCardSubtitle: "PayPal · 信用卡实时联动",
+    payCardSubtitle: "信用卡实时支付",
     payCardDesc:
       "立即点击快速安全地提交申请，付款完成后仅凭姓名和手机号即可透明查询支付记录。",
     payCardCta: "申请并支付",
@@ -62,8 +62,8 @@ const zh: Translation = {
   payment: {
     label: "PAYMENT SERVICE",
     sectionTitle: "申请与安全支付",
-    sectionSubtitle: "使用便捷的 PayPal 支付和安全的数据库查询系统。",
-    formTitle: "信用卡及 PayPal 支付申请",
+    sectionSubtitle: "使用便捷的信用卡支付和安全的数据库查询系统。",
+    formTitle: "信用卡支付申请",
     nameLabel: "姓名",
     namePlaceholder: "请输入您的姓名",
     phoneLabel: "手机号码",
@@ -83,8 +83,8 @@ const zh: Translation = {
     packageName: "BGI 大规模基因分析套餐",
     packageDesc: "香港 BGI GENOMICS 值得信赖的大规模基因数据分析",
     needInfo: "请输入姓名和手机号码以继续支付。",
-    notConfigured: "PayPal 支付尚未配置。请稍后重试或联系管理员。",
-    poweredBy: "由 PayPal 提供",
+    notConfigured: "支付尚未准备就绪。请稍后重试或联系管理员。",
+    poweredBy: "由 Airwallex 提供",
     sandboxNotice: "当前为测试（Sandbox）模式，不会产生实际扣款。",
     success: "支付完成",
     successMsg: "您的申请已受理。订单号：{{id}}",
@@ -114,7 +114,7 @@ const zh: Translation = {
     refundClose: "关闭",
     refundRequested: "您的取消/退款申请已受理，我们将在核实后处理。",
     refundGuide:
-      "退款将退回原支付方式（银行卡/PayPal），通常在申请后3~5个工作日内处理。",
+      "退款将退回原支付方式（银行卡），通常在申请后3~5个工作日内处理。",
     refundError: "提交时发生错误，请稍后重试。",
   },
   contact: {
