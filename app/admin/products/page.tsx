@@ -11,6 +11,7 @@ import {
   type ProductInput,
 } from "@/lib/products";
 import { fileToResizedDataUrl } from "@/lib/image";
+import AirwallexStatus from "@/components/admin/AirwallexStatus";
 
 const EMPTY_FORM: ProductInput = {
   name: "",
@@ -157,6 +158,9 @@ export default function AdminProductsPage() {
             결제 상품과 금액을 등록·수정합니다. 실제 청구 금액은 서버가 이
             값으로 처리합니다.
           </p>
+          <div className="mt-3">
+            <AirwallexStatus compact />
+          </div>
         </div>
         <div className="flex gap-2">
           <button
