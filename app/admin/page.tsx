@@ -9,6 +9,7 @@ import {
   type AppNotification,
 } from "@/lib/notifications";
 import { fmtDate } from "@/lib/format";
+import AirwallexStatus from "@/components/admin/AirwallexStatus";
 
 const TYPE_ICON: Record<string, string> = {
   payment: "💳",
@@ -62,6 +63,11 @@ export default function AdminDashboard() {
       <p className="mt-2 text-sm text-text-muted">
         결제·문의 현황을 한눈에 확인하세요.
       </p>
+
+      {/* Payment integration status (Airwallex) */}
+      <div className="mt-6">
+        <AirwallexStatus />
+      </div>
 
       {loading ? (
         <p className="mt-8 text-text-muted">불러오는 중...</p>
