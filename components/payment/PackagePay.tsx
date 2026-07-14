@@ -215,7 +215,7 @@ export default function PackagePay() {
 
   return (
     <section id="payment" className="section border-t border-border">
-      <div className="mx-auto w-full max-w-4xl px-4">
+      <div className="wrap">
         {/* Heading */}
         <div className="animate-fade-up text-center">
           <span className="label text-accent">{t("payment.label")}</span>
@@ -232,10 +232,10 @@ export default function PackagePay() {
             💳 {t("payment.formTitle")}
           </h3>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-8">
-            {/* ── LEFT: 제품 이미지 + (여러 상품이면) 썸네일 선택 ── */}
+          <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-10">
+            {/* ── LEFT: 선택된 제품 이미지 미리보기 ── */}
             <div>
-              <div className="overflow-hidden rounded-lg border border-border bg-white">
+              <div className="mx-auto w-full max-w-md overflow-hidden rounded-lg border border-border bg-white">
                 <img
                   src={selected?.imageUrl || PRODUCT_THUMB}
                   alt={dispName}
@@ -243,35 +243,6 @@ export default function PackagePay() {
                   className="aspect-square w-full object-cover object-top"
                 />
               </div>
-
-              {hasProducts && products.length > 1 && (
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                  {products.map((p) => {
-                    const active = p.id === selectedId;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setSelectedId(p.id)}
-                        title={p.name}
-                        aria-label={p.name}
-                        className={`h-16 w-16 flex-none overflow-hidden rounded-md border-2 transition-colors ${
-                          active
-                            ? "border-accent"
-                            : "border-border hover:border-accent/50"
-                        }`}
-                      >
-                        <img
-                          src={p.imageUrl || PRODUCT_THUMB}
-                          alt={p.name}
-                          loading="lazy"
-                          className="h-full w-full object-cover object-top"
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
 
               <h4 className="mt-4 text-lg font-extrabold leading-snug text-text-primary">
                 {dispName}
@@ -283,9 +254,27 @@ export default function PackagePay() {
               )}
             </div>
 
-            {/* ── RIGHT: 정보 입력 + 구매 ── */}
+            {/* ── RIGHT: 상품 선택 + 정보 입력 + 구매 ── */}
             <div className="flex flex-col">
               <div className="space-y-4">
+                {/* 상품 선택 (드롭다운) */}
+                {hasProducts && (
+                  <div className="field">
+                    <label>{t("payment.productLabel")}</label>
+                    <select
+                      className="select"
+                      value={selectedId}
+                      onChange={(e) => setSelectedId(e.target.value)}
+                    >
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.amount} {p.currency}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="field">
                   <label>
                     {t("payment.nameLabel")}{" "}
