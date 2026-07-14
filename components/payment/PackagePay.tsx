@@ -215,7 +215,7 @@ export default function PackagePay() {
 
   return (
     <section id="payment" className="section border-t border-border">
-      <div className="wrap-narrow">
+      <div className="mx-auto w-full max-w-4xl px-4">
         {/* Heading */}
         <div className="animate-fade-up text-center">
           <span className="label text-accent">{t("payment.label")}</span>
@@ -226,62 +226,26 @@ export default function PackagePay() {
           <div className="divider mx-auto" />
         </div>
 
-        {/* ── Live applicants ticker (social proof) ── */}
-        <RecentApplicants />
-
-        {/* ── Application & payment card ── */}
+        {/* ── Application & payment card (Naver-style 2-column) ── */}
         <div className="card mt-10">
           <h3 className="h3 flex items-center gap-2">
             💳 {t("payment.formTitle")}
           </h3>
 
-          <div className="mt-6 space-y-4">
-            <div className="field">
-              <label>
-                {t("payment.nameLabel")} <span className="text-accent">*</span>
-              </label>
-              <input
-                className="input"
-                value={form.name}
-                onChange={(e) => setField("name", e.target.value)}
-                placeholder={t("payment.namePlaceholder")}
-                required
-              />
-            </div>
+          <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-8">
+            {/* ── LEFT: 제품 이미지 + (여러 상품이면) 썸네일 선택 ── */}
+            <div>
+              <div className="overflow-hidden rounded-lg border border-border bg-white">
+                <img
+                  src={selected?.imageUrl || PRODUCT_THUMB}
+                  alt={dispName}
+                  loading="lazy"
+                  className="aspect-square w-full object-cover object-top"
+                />
+              </div>
 
-            <div className="field">
-              <label>
-                {t("payment.phoneLabel")} <span className="text-accent">*</span>
-              </label>
-              <input
-                className="input"
-                type="tel"
-                inputMode="numeric"
-                value={form.phone}
-                onChange={(e) => setField("phone", e.target.value)}
-                placeholder={t("payment.phonePlaceholder")}
-                required
-              />
-              <p className="mt-1 text-xs text-text-muted">{t("payment.credNote")}</p>
-            </div>
-
-            <div className="field">
-              <label>{t("payment.emailLabel")}</label>
-              <input
-                className="input"
-                type="email"
-                value={form.email}
-                onChange={(e) => setField("email", e.target.value)}
-                placeholder={t("payment.emailPlaceholder")}
-              />
-            </div>
-
-            {/* Product selection */}
-            <div className="field">
-              <label>{t("payment.productLabel")}</label>
-
-              {hasProducts ? (
-                <div className="space-y-3">
+              {hasProducts && products.length > 1 && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                   {products.map((p) => {
                     const active = p.id === selectedId;
                     return (
@@ -289,150 +253,148 @@ export default function PackagePay() {
                         key={p.id}
                         type="button"
                         onClick={() => setSelectedId(p.id)}
-                        className={`flex w-full flex-col gap-3 rounded-lg border-2 p-4 text-left transition-colors ${
+                        title={p.name}
+                        aria-label={p.name}
+                        className={`h-16 w-16 flex-none overflow-hidden rounded-md border-2 transition-colors ${
                           active
-                            ? "border-accent bg-[#fdf6e3]"
-                            : "border-border bg-bg hover:border-accent/50"
+                            ? "border-accent"
+                            : "border-border hover:border-accent/50"
                         }`}
                       >
-                        {/* 1) 상품명 */}
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border text-[0.7rem] ${
-                              active
-                                ? "border-accent bg-accent text-white"
-                                : "border-border-strong text-transparent"
-                            }`}
-                            aria-hidden="true"
-                          >
-                            ✓
-                          </span>
-                          <p className="font-bold leading-snug text-text-primary">
-                            {p.name}
-                          </p>
-                        </div>
-
-                        {/* 2) 상품이미지 (관리자 업로드 이미지, 없으면 대표 이미지) */}
-                        <div className="overflow-hidden rounded-md border border-border/60 bg-white">
-                          <img
-                            src={p.imageUrl || PRODUCT_THUMB}
-                            alt={p.name}
-                            loading="lazy"
-                            className="h-36 w-full object-cover object-top sm:h-44"
-                          />
-                        </div>
-
-                        {/* 3) 상품소개 */}
-                        {p.description && (
-                          <p className="text-sm leading-relaxed text-text-secondary">
-                            {p.description}
-                          </p>
-                        )}
-
-                        {/* 4) 가격 */}
-                        <div className="flex items-baseline justify-between border-t border-border/60 pt-3">
-                          <span className="text-xs font-semibold text-text-muted">
-                            {t("payment.priceLabel")}
-                          </span>
-                          <span className="text-xl font-extrabold text-accent">
-                            {p.amount} {p.currency}
-                          </span>
-                        </div>
+                        <img
+                          src={p.imageUrl || PRODUCT_THUMB}
+                          alt={p.name}
+                          loading="lazy"
+                          className="h-full w-full object-cover object-top"
+                        />
                       </button>
                     );
                   })}
                 </div>
-              ) : (
-                // Legacy env fallback (single product)
-                <div className="flex flex-col gap-3 rounded-lg border-2 border-accent/40 bg-[#fdf6e3] p-4">
-                  {/* 1) 상품명 */}
-                  <p className="font-bold leading-snug text-text-primary">
-                    {dispName}
-                  </p>
+              )}
 
-                  {/* 2) 상품이미지 */}
-                  <div className="overflow-hidden rounded-md border border-border/60 bg-white">
-                    <img
-                      src={PRODUCT_THUMB}
-                      alt={dispName}
-                      loading="lazy"
-                      className="h-36 w-full object-cover object-top sm:h-44"
-                    />
-                  </div>
+              <h4 className="mt-4 text-lg font-extrabold leading-snug text-text-primary">
+                {dispName}
+              </h4>
+              {dispDesc && (
+                <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                  {dispDesc}
+                </p>
+              )}
+            </div>
 
-                  {/* 3) 상품소개 */}
-                  <p className="text-sm leading-relaxed text-text-secondary">
-                    {dispDesc}
-                  </p>
-
-                  {/* 4) 가격 */}
-                  <div className="flex items-baseline justify-between border-t border-accent/30 pt-3">
-                    <span className="text-xs font-semibold text-text-muted">
-                      {t("payment.priceLabel")}
-                    </span>
-                    <span className="text-xl font-extrabold text-accent">
-                      {FALLBACK_AMOUNT} {FALLBACK_CURRENCY}
-                    </span>
-                  </div>
+            {/* ── RIGHT: 정보 입력 + 구매 ── */}
+            <div className="flex flex-col">
+              <div className="space-y-4">
+                <div className="field">
+                  <label>
+                    {t("payment.nameLabel")}{" "}
+                    <span className="text-accent">*</span>
+                  </label>
+                  <input
+                    className="input"
+                    value={form.name}
+                    onChange={(e) => setField("name", e.target.value)}
+                    placeholder={t("payment.namePlaceholder")}
+                    required
+                  />
                 </div>
+
+                <div className="field">
+                  <label>
+                    {t("payment.phoneLabel")}{" "}
+                    <span className="text-accent">*</span>
+                  </label>
+                  <input
+                    className="input"
+                    type="tel"
+                    inputMode="numeric"
+                    value={form.phone}
+                    onChange={(e) => setField("phone", e.target.value)}
+                    placeholder={t("payment.phonePlaceholder")}
+                    required
+                  />
+                  <p className="mt-1 text-xs text-text-muted">
+                    {t("payment.credNote")}
+                  </p>
+                </div>
+
+                <div className="field">
+                  <label>{t("payment.emailLabel")}</label>
+                  <input
+                    className="input"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setField("email", e.target.value)}
+                    placeholder={t("payment.emailPlaceholder")}
+                  />
+                </div>
+              </div>
+
+              {/* 주문 요약 (가격) */}
+              <div className="mt-5 flex items-baseline justify-between rounded-lg border border-border bg-bg-alt px-4 py-3">
+                <span className="text-sm font-semibold text-text-muted">
+                  {t("payment.priceLabel")}
+                </span>
+                <span className="text-2xl font-extrabold text-accent">
+                  {dispAmount} {dispCurrency}
+                </span>
+              </div>
+
+              {/* 결과 메시지 */}
+              {payStatus.kind === "success" && (
+                <div className="mt-4 rounded border border-[#b5e0c8] bg-[#e8f7ef] p-4 text-sm text-[#1a8a52]">
+                  <p className="font-bold">{t("payment.success")}</p>
+                  <p className="mt-1">
+                    {t("payment.successMsg", { id: payStatus.orderId })}
+                  </p>
+                </div>
+              )}
+              {payStatus.kind === "cancelled" && (
+                <p className="mt-4 text-sm text-text-muted">
+                  {t("payment.cancelled")}
+                </p>
+              )}
+              {payStatus.kind === "error" && (
+                <p className="mt-4 text-sm text-red-600">{t("payment.error")}</p>
+              )}
+
+              {/* 결제 버튼 (Airwallex Hosted Payment Page) */}
+              {payStatus.kind !== "success" && isAirwallexConfigured && (
+                <div className="mt-4">
+                  {awxError && (
+                    <p className="mb-2 text-center text-sm text-red-600">
+                      결제창을 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={payWithAirwallex}
+                    disabled={!canPay || awxBusy}
+                    className="btn btn-gold w-full disabled:opacity-40"
+                  >
+                    {awxBusy ? "결제창 여는 중…" : "💳 카드로 결제하기"}
+                  </button>
+                  {!canPay && (
+                    <p className="mt-2 text-center text-sm text-text-muted">
+                      {t("payment.needInfo")}
+                    </p>
+                  )}
+                  {AIRWALLEX_IS_SANDBOX && (
+                    <p className="mt-2 text-center text-xs text-accent">
+                      테스트(샌드박스) 모드입니다. 실제 결제가 청구되지 않습니다.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {payStatus.kind !== "success" && !isAirwallexConfigured && (
+                <p className="mt-4 text-sm text-text-muted">
+                  {t("payment.notConfigured")}
+                </p>
               )}
             </div>
           </div>
-
-          {/* Result messages */}
-          {payStatus.kind === "success" && (
-            <div className="mt-6 rounded border border-[#b5e0c8] bg-[#e8f7ef] p-4 text-sm text-[#1a8a52]">
-              <p className="font-bold">{t("payment.success")}</p>
-              <p className="mt-1">
-                {t("payment.successMsg", { id: payStatus.orderId })}
-              </p>
-            </div>
-          )}
-          {payStatus.kind === "cancelled" && (
-            <p className="mt-4 text-sm text-text-muted">{t("payment.cancelled")}</p>
-          )}
-          {payStatus.kind === "error" && (
-            <p className="mt-4 text-sm text-red-600">{t("payment.error")}</p>
-          )}
-
-          {/* Airwallex — card payment via Hosted Payment Page (redirect). */}
-          {payStatus.kind !== "success" && isAirwallexConfigured && (
-            <div className="mt-6">
-              <p className="mb-3 text-center text-xs font-bold text-text-muted">
-                카드로 결제
-              </p>
-              {awxError && (
-                <p className="mb-2 text-center text-sm text-red-600">
-                  결제창을 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={payWithAirwallex}
-                disabled={!canPay || awxBusy}
-                className="btn btn-gold w-full disabled:opacity-40"
-              >
-                {awxBusy ? "결제창 여는 중…" : "💳 카드로 결제하기"}
-              </button>
-              {!canPay && (
-                <p className="mt-2 text-center text-sm text-text-muted">
-                  {t("payment.needInfo")}
-                </p>
-              )}
-              {AIRWALLEX_IS_SANDBOX && (
-                <p className="mt-2 text-center text-xs text-accent">
-                  테스트(샌드박스) 모드입니다. 실제 결제가 청구되지 않습니다.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* No payment method available (Airwallex not configured). */}
-          {payStatus.kind !== "success" && !isAirwallexConfigured && (
-            <p className="mt-6 text-sm text-text-muted">
-              {t("payment.notConfigured")}
-            </p>
-          )}
         </div>
 
         {/* ── Lookup card ── */}
@@ -583,6 +545,9 @@ export default function PackagePay() {
             )}
           </div>
         </div>
+
+        {/* ── Live applicants ticker (social proof) — moved to the bottom ── */}
+        <RecentApplicants />
       </div>
     </section>
   );
