@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { isFirebaseConfigured } from "@/lib/firebase";
-import { recordPayment } from "@/lib/payments";
+import { recordPayment, saveShippingAddress } from "@/lib/payments";
 import { createNotification } from "@/lib/notifications";
 
 // Airwallex redirects the shopper here after the hosted payment page. The buyer
@@ -18,6 +18,13 @@ interface Pending {
   name: string;
   phone: string;
   email: string;
+  recipient?: string;
+  postcode?: string;
+  address?: string;
+  addressDetail?: string;
+  tel?: string;
+  deliveryMessage?: string;
+  quantity?: number;
   packageName: string;
 }
 
@@ -75,11 +82,28 @@ export default function AirwallexReturnPage() {
               amount: String(data.amount),
               currency: String(data.currency),
               packageName: pending!.packageName,
+              quantity: pending!.quantity,
               provider: "airwallex",
               cardBrand: data.cardBrand ?? "",
               cardLast4: data.cardLast4 ?? "",
               captureId: data.id, // payment_intent id → used for refund + webhook match
             });
+            // Save the shipping address into the admin-only paymentDetails doc.
+            // Failure here must never fail the payment record itself.
+            if (pending!.address?.trim()) {
+              try {
+                await saveShippingAddress(paymentId, {
+                  recipient: pending!.recipient?.trim() || pending!.name,
+                  address: pending!.address ?? "",
+                  postcode: pending!.postcode ?? "",
+                  addressDetail: pending!.addressDetail ?? "",
+                  tel: pending!.tel ?? "",
+                  deliveryMessage: pending!.deliveryMessage ?? "",
+                });
+              } catch (e) {
+                console.error("saveShippingAddress failed", e);
+              }
+            }
             try {
               await createNotification(
                 "payment",
