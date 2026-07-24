@@ -34,6 +34,9 @@ export default function ContentGuard() {
     const onDragStart = (e: Event) => e.preventDefault();
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // e.key is undefined for some synthetic events (browser autofill,
+      // IME composition, password managers) — nothing to block there.
+      if (typeof e.key !== "string") return;
       const key = e.key.toLowerCase();
 
       // DevTools / view-source / save / print shortcuts.

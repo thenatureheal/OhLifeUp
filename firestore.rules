@@ -33,7 +33,7 @@ service cloud.firestore {
     function isValidPayment() {
       let d = request.resource.data;
       // 'provider' 는 선택 필드(레거시 결제 문서엔 없음). 있으면 값 검증.
-      return d.keys().hasOnly(['name', 'phone', 'email', 'orderId', 'amount', 'currency', 'packageName', 'status', 'provider', 'cardBrand', 'cardLast4', 'captureId', 'createdAt'])
+      return d.keys().hasOnly(['name', 'phone', 'email', 'orderId', 'amount', 'currency', 'packageName', 'quantity', 'status', 'provider', 'cardBrand', 'cardLast4', 'captureId', 'shippingStatus', 'courier', 'trackingNo', 'createdAt'])
         && d.name is string && d.name.size() >= 1 && d.name.size() <= 100
         && d.phone is string && d.phone.size() >= 1 && d.phone.size() <= 30
         && d.email is string && d.email.size() <= 200
@@ -41,11 +41,17 @@ service cloud.firestore {
         && d.amount is string && d.amount.size() <= 20
         && d.currency is string && d.currency.size() <= 10
         && d.packageName is string && d.packageName.size() <= 200
+        && (!d.keys().hasAny(['quantity']) || (d.quantity is int && d.quantity >= 1 && d.quantity <= 99))
         && d.status == 'paid'
         && (!d.keys().hasAny(['provider']) || d.provider in ['paypal', 'airwallex'])
         && d.cardBrand is string && d.cardBrand.size() <= 30
         && d.cardLast4 is string && d.cardLast4.size() <= 4
         && d.captureId is string && d.captureId.size() <= 100
+        // 배송 필드: 생성 시엔 항상 '준비중' + 빈 값 (배송정보는 관리자만 입력).
+        // 레거시 클라이언트 호환을 위해 필드 자체는 선택.
+        && (!d.keys().hasAny(['shippingStatus']) || d.shippingStatus == 'preparing')
+        && (!d.keys().hasAny(['courier']) || d.courier == '')
+        && (!d.keys().hasAny(['trackingNo']) || d.trackingNo == '')
         && d.createdAt == request.time;
     }
 
@@ -54,6 +60,32 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.diff(resource.data).affectedKeys().hasOnly(['status'])
         && d.status in ['paid', 'refunded', 'cancelled'];
+    }
+
+    // 배송 정보 변경(관리자 전용): 배송 상태/택배사/송장번호만 수정 가능.
+    function isValidShippingUpdate() {
+      let d = request.resource.data;
+      return d.diff(resource.data).affectedKeys().hasOnly(['shippingStatus', 'courier', 'trackingNo'])
+        && d.shippingStatus in ['preparing', 'shipping', 'delivered']
+        && d.courier is string && d.courier.size() <= 50
+        && d.trackingNo is string && d.trackingNo.size() <= 60;
+    }
+
+    // 결제 직후 비회원(구매자)이 배송지 주소를 저장할 때의 생성 검증.
+    // 주소 필드만 채울 수 있고 나머지 PII는 빈 값이어야 함. 읽기는 여전히 관리자 전용.
+    function isValidDetailsCreate() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['recipient', 'address', 'postcode', 'addressDetail', 'tel', 'deliveryMessage', 'birthdate', 'gender', 'memo', 'updatedAt'])
+        && d.recipient is string && d.recipient.size() >= 1 && d.recipient.size() <= 100
+        && d.address is string && d.address.size() >= 1 && d.address.size() <= 300
+        && d.postcode is string && d.postcode.size() <= 20
+        && d.addressDetail is string && d.addressDetail.size() <= 200
+        && d.tel is string && d.tel.size() <= 30
+        && d.deliveryMessage is string && d.deliveryMessage.size() <= 200
+        && d.birthdate == ''
+        && d.gender == ''
+        && d.memo == ''
+        && d.updatedAt == request.time;
     }
 
     function isValidInquiry() {
@@ -95,8 +127,8 @@ service cloud.firestore {
       //   등 민감 PII 는 아래 paymentDetails(관리자 전용)에 별도 저장되어 노출되지 않습니다.
       allow read: if true;
       allow create: if isValidPayment();
-      // 상태(결제/환불/취소) 변경은 관리자만.
-      allow update: if isAdmin() && isValidStatusUpdate();
+      // 상태(결제/환불/취소) 및 배송 정보 변경은 관리자만.
+      allow update: if isAdmin() && (isValidStatusUpdate() || isValidShippingUpdate());
       allow delete: if false;
     }
 
@@ -108,8 +140,15 @@ service cloud.firestore {
     }
 
     match /paymentDetails/{paymentId} {
-      // 관리자가 입력하는 민감 PII(주소/생년월일/성별/메모). 관리자만 접근.
-      allow read, write: if isAdmin();
+      // 민감 PII(주소/생년월일/성별/메모). 읽기/수정/삭제는 관리자만.
+      // 생성은 결제 직후 구매자가 배송지 주소를 저장할 수 있도록 검증 후 허용.
+      // 단, 대응되는 결제 문서가 실제로 존재하고 결제 생성 후 1시간 이내일 때만
+      // 허용하여 과거 주문에 대한 배송지 주입(주소 탈취)을 차단.
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin()
+        || (isValidDetailsCreate()
+            && exists(/databases/$(database)/documents/payments/$(paymentId))
+            && request.time < get(/databases/$(database)/documents/payments/$(paymentId)).data.createdAt + duration.value(1, 'h'));
     }
 
     match /inquiries/{inquiryId} {

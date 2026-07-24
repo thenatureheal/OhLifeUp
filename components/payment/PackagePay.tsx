@@ -45,8 +45,23 @@ type LookupState =
 export default function PackagePay() {
   const { t } = useTranslation();
 
-  // ── Application form ──
-  const [form, setForm] = useState({ name: "", phone: "", email: "" });
+  // ── Order flow: step 1 = product select (바로구매), step 2 = order sheet ──
+  const [step, setStep] = useState<"select" | "order">("select");
+  const [quantity, setQuantity] = useState(1);
+  const [agree, setAgree] = useState(false);
+
+  // ── Order form (step 2) ──
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    recipient: "",
+    postcode: "",
+    address: "",
+    addressDetail: "",
+    tel: "",
+    deliveryMessage: "",
+  });
   const [payStatus, setPayStatus] = useState<PayStatus>({ kind: "idle" });
   const setField = (k: keyof typeof form, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -75,10 +90,26 @@ export default function PackagePay() {
   const dispAmount = selected?.amount ?? FALLBACK_AMOUNT;
   const dispCurrency = selected?.currency ?? FALLBACK_CURRENCY;
 
+  // Quantity only applies when a server-priced product is selected — the env
+  // fallback product is always charged as a single unit, so force qty 1 there
+  // to keep the displayed total equal to the actual charge.
+  const effectiveQty = selected ? quantity : 1;
+
+  // Total = unit × quantity, in integer cents (display only — the server
+  // recomputes the real charge from the product doc).
+  const totalCents = Math.round(Number(dispAmount) * 100) * effectiveQty;
+  const dispTotal = Number.isFinite(totalCents)
+    ? (totalCents / 100).toFixed(2)
+    : dispAmount;
+
+  const canBuy = !hasProducts || Boolean(selected);
   const canPay =
+    canBuy &&
+    agree &&
     form.name.trim().length > 0 &&
     form.phone.trim().length > 0 &&
-    (!hasProducts || Boolean(selected));
+    form.recipient.trim().length > 0 &&
+    form.address.trim().length > 0;
 
   // ── Airwallex (Hosted Payment Page redirect) ──
   const [awxBusy, setAwxBusy] = useState(false);
@@ -94,8 +125,8 @@ export default function PackagePay() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           selected
-            ? { productId: selected.id, packageName: dispName }
-            : { packageName: dispName }
+            ? { productId: selected.id, packageName: dispName, quantity: effectiveQty }
+            : { packageName: dispName, quantity: effectiveQty }
         ),
       });
       const data = await res.json();
@@ -112,6 +143,13 @@ export default function PackagePay() {
           name: form.name.trim(),
           phone: form.phone,
           email: form.email.trim(),
+          recipient: form.recipient.trim(),
+          postcode: form.postcode.trim(),
+          address: form.address.trim(),
+          addressDetail: form.addressDetail.trim(),
+          tel: form.tel.trim(),
+          deliveryMessage: form.deliveryMessage.trim(),
+          quantity: effectiveQty,
           packageName: dispName,
         })
       );
@@ -194,6 +232,16 @@ export default function PackagePay() {
     return <span className={`badge ${m.cls}`}>{m.label}</span>;
   };
 
+  const shippingBadge = (status: PaymentRecord["shippingStatus"]) => {
+    const map = {
+      preparing: { cls: "badge-gold", label: t("payment.shippingPreparing") },
+      shipping: { cls: "badge-blue", label: t("payment.shippingShipping") },
+      delivered: { cls: "badge-green", label: t("payment.shippingDelivered") },
+    } as const;
+    const m = map[status] ?? map.preparing;
+    return <span className={`badge ${m.cls}`}>🚚 {m.label}</span>;
+  };
+
   const runLookup = async () => {
     if (!lookup.name.trim() || !lookup.phone.trim()) {
       setLookupState({ kind: "needInfo" });
@@ -226,165 +274,359 @@ export default function PackagePay() {
           <div className="divider mx-auto" />
         </div>
 
-        {/* ── Application & payment card (Naver-style 2-column) ── */}
-        <div className="card mt-10">
-          <h3 className="h3 flex items-center gap-2">
-            💳 {t("payment.formTitle")}
-          </h3>
+        {/* ── STEP 1: 상품 선택 카드 (옵션 + 수량 + 바로구매) ── */}
+        {step === "select" && (
+          <div className="card mt-10">
+            <h3 className="h3 flex items-center gap-2">
+              🛒 {t("payment.formTitle")}
+            </h3>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-10">
-            {/* ── LEFT: 선택된 제품 이미지 미리보기 ── */}
-            <div>
-              <div className="mx-auto w-full max-w-md overflow-hidden rounded-lg border border-border bg-white">
+            <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-10">
+              {/* LEFT: 선택된 제품 이미지 미리보기 */}
+              <div>
+                <div className="mx-auto w-full max-w-md overflow-hidden rounded-lg border border-border bg-white">
+                  <img
+                    src={selected?.imageUrl || PRODUCT_THUMB}
+                    alt={dispName}
+                    loading="lazy"
+                    className="aspect-square w-full object-cover object-top"
+                  />
+                </div>
+
+                <h4 className="mt-4 text-lg font-extrabold leading-snug text-text-primary">
+                  {dispName}
+                </h4>
+                {dispDesc && (
+                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                    {dispDesc}
+                  </p>
+                )}
+              </div>
+
+              {/* RIGHT: 옵션(상품) + 수량 + 금액 + 바로구매 */}
+              <div className="flex flex-col">
+                <div className="space-y-4">
+                  {hasProducts && (
+                    <div className="field">
+                      <label>{t("payment.productLabel")}</label>
+                      <select
+                        className="select"
+                        value={selectedId}
+                        onChange={(e) => setSelectedId(e.target.value)}
+                      >
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {p.amount} {p.currency}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {hasProducts && (
+                    <div className="field">
+                      <label>{t("payment.quantityLabel")}</label>
+                      <select
+                        className="select"
+                        aria-label={t("payment.quantityLabel")}
+                        value={quantity}
+                        onChange={(e) => setQuantity(Number(e.target.value))}
+                      >
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* 금액 요약 */}
+                <div className="mt-5 space-y-2 rounded-lg border border-border bg-bg-alt px-4 py-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-semibold text-text-muted">
+                      {t("payment.priceLabel")}
+                    </span>
+                    <span className="text-sm font-bold text-text-primary">
+                      {dispAmount} {dispCurrency} × {quantity}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between border-t border-border pt-2">
+                    <span className="text-sm font-semibold text-text-muted">
+                      {t("payment.totalAmount")}
+                    </span>
+                    <span className="text-2xl font-extrabold text-accent">
+                      {dispTotal} {dispCurrency}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setStep("order")}
+                  disabled={!canBuy}
+                  className="btn btn-gold mt-4 w-full disabled:opacity-40"
+                >
+                  🛒 {t("payment.buyNow")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 2: 주문서 작성 카드 ── */}
+        {step === "order" && (
+          <div className="card mt-10">
+            <h3 className="h3 flex items-center gap-2">
+              📝 {t("payment.orderTitle")}
+            </h3>
+
+            {/* 1) 주문 상품 요약 (수량·가격·총 주문 금액) */}
+            <div className="mt-6 rounded-lg border border-border bg-bg-alt p-4">
+              <div className="flex items-center gap-4">
                 <img
                   src={selected?.imageUrl || PRODUCT_THUMB}
                   alt={dispName}
                   loading="lazy"
-                  className="aspect-square w-full object-cover object-top"
+                  className="h-16 w-16 rounded border border-border object-cover object-top"
                 />
-              </div>
-
-              <h4 className="mt-4 text-lg font-extrabold leading-snug text-text-primary">
-                {dispName}
-              </h4>
-              {dispDesc && (
-                <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                  {dispDesc}
-                </p>
-              )}
-            </div>
-
-            {/* ── RIGHT: 상품 선택 + 정보 입력 + 구매 ── */}
-            <div className="flex flex-col">
-              <div className="space-y-4">
-                {/* 상품 선택 (드롭다운) */}
-                {hasProducts && (
-                  <div className="field">
-                    <label>{t("payment.productLabel")}</label>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-text-primary">
+                    {dispName}
+                  </p>
+                  <p className="mt-0.5 text-xs text-text-muted">
+                    {t("payment.priceLabel")}: {dispAmount} {dispCurrency}
+                  </p>
+                </div>
+                {hasProducts ? (
+                  <div className="field !mb-0 w-20 shrink-0">
+                    <label className="text-xs">
+                      {t("payment.quantityLabel")}
+                    </label>
                     <select
                       className="select"
-                      value={selectedId}
-                      onChange={(e) => setSelectedId(e.target.value)}
+                      aria-label={t("payment.quantityLabel")}
+                      value={quantity}
+                      onChange={(e) => setQuantity(Number(e.target.value))}
                     >
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} — {p.amount} {p.currency}
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n}
                         </option>
                       ))}
                     </select>
                   </div>
+                ) : (
+                  <span className="shrink-0 text-sm text-text-muted">
+                    {t("payment.quantityLabel")}: 1
+                  </span>
                 )}
-
-                <div className="field">
-                  <label>
-                    {t("payment.nameLabel")}{" "}
-                    <span className="text-accent">*</span>
-                  </label>
-                  <input
-                    className="input"
-                    value={form.name}
-                    onChange={(e) => setField("name", e.target.value)}
-                    placeholder={t("payment.namePlaceholder")}
-                    required
-                  />
-                </div>
-
-                <div className="field">
-                  <label>
-                    {t("payment.phoneLabel")}{" "}
-                    <span className="text-accent">*</span>
-                  </label>
-                  <input
-                    className="input"
-                    type="tel"
-                    inputMode="numeric"
-                    value={form.phone}
-                    onChange={(e) => setField("phone", e.target.value)}
-                    placeholder={t("payment.phonePlaceholder")}
-                    required
-                  />
-                  <p className="mt-1 text-xs text-text-muted">
-                    {t("payment.credNote")}
-                  </p>
-                </div>
-
-                <div className="field">
-                  <label>{t("payment.emailLabel")}</label>
-                  <input
-                    className="input"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setField("email", e.target.value)}
-                    placeholder={t("payment.emailPlaceholder")}
-                  />
-                </div>
               </div>
-
-              {/* 주문 요약 (가격) */}
-              <div className="mt-5 flex items-baseline justify-between rounded-lg border border-border bg-bg-alt px-4 py-3">
+              <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
                 <span className="text-sm font-semibold text-text-muted">
-                  {t("payment.priceLabel")}
+                  {t("payment.totalAmount")}
                 </span>
                 <span className="text-2xl font-extrabold text-accent">
-                  {dispAmount} {dispCurrency}
+                  {dispTotal} {dispCurrency}
                 </span>
               </div>
+            </div>
 
-              {/* 결과 메시지 */}
-              {payStatus.kind === "success" && (
-                <div className="mt-4 rounded border border-[#b5e0c8] bg-[#e8f7ef] p-4 text-sm text-[#1a8a52]">
-                  <p className="font-bold">{t("payment.success")}</p>
-                  <p className="mt-1">
-                    {t("payment.successMsg", { id: payStatus.orderId })}
-                  </p>
-                </div>
-              )}
-              {payStatus.kind === "cancelled" && (
-                <p className="mt-4 text-sm text-text-muted">
-                  {t("payment.cancelled")}
+            {/* 2) 주문자 정보 */}
+            <h4 className="mt-8 border-b border-border pb-2 text-base font-extrabold text-text-primary">
+              {t("payment.ordererInfo")}
+            </h4>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="field">
+                <label>
+                  {t("payment.nameLabel")} <span className="text-accent">*</span>
+                </label>
+                <input
+                  className="input"
+                  value={form.name}
+                  onChange={(e) => setField("name", e.target.value)}
+                  placeholder={t("payment.namePlaceholder")}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>
+                  {t("payment.phoneLabel")} <span className="text-accent">*</span>
+                </label>
+                <input
+                  className="input"
+                  type="tel"
+                  inputMode="numeric"
+                  value={form.phone}
+                  onChange={(e) => setField("phone", e.target.value)}
+                  placeholder={t("payment.phonePlaceholder")}
+                  required
+                />
+              </div>
+              <div className="field sm:col-span-2">
+                <label>{t("payment.emailLabel")}</label>
+                <input
+                  className="input"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setField("email", e.target.value)}
+                  placeholder={t("payment.emailPlaceholder")}
+                />
+                <p className="mt-1 text-xs text-text-muted">
+                  {t("payment.credNote")}
                 </p>
-              )}
-              {payStatus.kind === "error" && (
-                <p className="mt-4 text-sm text-red-600">{t("payment.error")}</p>
-              )}
+              </div>
+            </div>
 
-              {/* 결제 버튼 (Airwallex Hosted Payment Page) */}
-              {payStatus.kind !== "success" && isAirwallexConfigured && (
-                <div className="mt-4">
-                  {awxError && (
-                    <p className="mb-2 text-center text-sm text-red-600">
-                      결제창을 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
-                    </p>
-                  )}
+            {/* 3) 비회원 개인정보 수집·이용 동의 */}
+            <h4 className="mt-8 border-b border-border pb-2 text-base font-extrabold text-text-primary">
+              {t("payment.consentTitle")}
+            </h4>
+            <div className="mt-4 max-h-32 overflow-y-auto whitespace-pre-line rounded border border-border bg-bg-alt p-3 text-xs leading-relaxed text-text-secondary">
+              {t("payment.consentBody")}
+            </div>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm font-bold text-text-primary">
+              <input
+                type="checkbox"
+                checked={agree}
+                onChange={(e) => setAgree(e.target.checked)}
+                className="h-4 w-4 accent-accent"
+              />
+              {t("payment.consentAgree")} <span className="text-accent">*</span>
+            </label>
+
+            {/* 4) 배송지 정보 입력 */}
+            <h4 className="mt-8 border-b border-border pb-2 text-base font-extrabold text-text-primary">
+              {t("payment.shippingInfoTitle")}
+            </h4>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="field">
+                <label>
+                  {t("payment.recipientLabel")}{" "}
+                  <span className="text-accent">*</span>
+                </label>
+                <input
+                  className="input"
+                  value={form.recipient}
+                  onChange={(e) => setField("recipient", e.target.value)}
+                  placeholder={t("payment.recipientPlaceholder")}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>{t("payment.telLabel")}</label>
+                <input
+                  className="input"
+                  type="tel"
+                  value={form.tel}
+                  onChange={(e) => setField("tel", e.target.value)}
+                  placeholder={t("payment.telPlaceholder")}
+                />
+              </div>
+              <div className="field sm:col-span-2">
+                <label>
+                  {t("payment.addressLabel")}{" "}
+                  <span className="text-accent">*</span>
+                </label>
+                <div className="grid gap-2">
+                  <input
+                    className="input"
+                    value={form.postcode}
+                    onChange={(e) => setField("postcode", e.target.value)}
+                    placeholder={t("payment.postcodePlaceholder")}
+                  />
+                  <input
+                    className="input"
+                    value={form.address}
+                    onChange={(e) => setField("address", e.target.value)}
+                    placeholder={t("payment.addressPlaceholder")}
+                    required
+                  />
+                  <input
+                    className="input"
+                    value={form.addressDetail}
+                    onChange={(e) => setField("addressDetail", e.target.value)}
+                    placeholder={t("payment.addressDetailPlaceholder")}
+                  />
+                </div>
+              </div>
+              <div className="field sm:col-span-2">
+                <label>{t("payment.deliveryMsgLabel")}</label>
+                <input
+                  className="input"
+                  value={form.deliveryMessage}
+                  onChange={(e) => setField("deliveryMessage", e.target.value)}
+                  placeholder={t("payment.deliveryMsgPlaceholder")}
+                />
+              </div>
+            </div>
+
+            {/* 결과 메시지 */}
+            {payStatus.kind === "success" && (
+              <div className="mt-6 rounded border border-[#b5e0c8] bg-[#e8f7ef] p-4 text-sm text-[#1a8a52]">
+                <p className="font-bold">{t("payment.success")}</p>
+                <p className="mt-1">
+                  {t("payment.successMsg", { id: payStatus.orderId })}
+                </p>
+              </div>
+            )}
+            {payStatus.kind === "cancelled" && (
+              <p className="mt-6 text-sm text-text-muted">
+                {t("payment.cancelled")}
+              </p>
+            )}
+            {payStatus.kind === "error" && (
+              <p className="mt-6 text-sm text-red-600">{t("payment.error")}</p>
+            )}
+
+            {/* 5) 결제하기 / 이전으로 */}
+            {payStatus.kind !== "success" && isAirwallexConfigured && (
+              <div className="mt-6">
+                {awxError && (
+                  <p className="mb-2 text-center text-sm text-red-600">
+                    결제창을 여는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep("select")}
+                    className="btn btn-outline shrink-0"
+                  >
+                    ← {t("payment.backToProduct")}
+                  </button>
                   <button
                     type="button"
                     onClick={payWithAirwallex}
                     disabled={!canPay || awxBusy}
                     className="btn btn-gold w-full disabled:opacity-40"
                   >
-                    {awxBusy ? "결제창 여는 중…" : "💳 카드로 결제하기"}
+                    {awxBusy
+                      ? "결제창 여는 중…"
+                      : `💳 ${t("payment.payNow")} (${dispTotal} ${dispCurrency})`}
                   </button>
-                  {!canPay && (
-                    <p className="mt-2 text-center text-sm text-text-muted">
-                      {t("payment.needInfo")}
-                    </p>
-                  )}
-                  {AIRWALLEX_IS_SANDBOX && (
-                    <p className="mt-2 text-center text-xs text-accent">
-                      테스트(샌드박스) 모드입니다. 실제 결제가 청구되지 않습니다.
-                    </p>
-                  )}
                 </div>
-              )}
+                {!canPay && (
+                  <p className="mt-2 text-center text-sm text-text-muted">
+                    {t("payment.needInfo")}
+                  </p>
+                )}
+                {AIRWALLEX_IS_SANDBOX && (
+                  <p className="mt-2 text-center text-xs text-accent">
+                    테스트(샌드박스) 모드입니다. 실제 결제가 청구되지 않습니다.
+                  </p>
+                )}
+              </div>
+            )}
 
-              {payStatus.kind !== "success" && !isAirwallexConfigured && (
-                <p className="mt-4 text-sm text-text-muted">
-                  {t("payment.notConfigured")}
-                </p>
-              )}
-            </div>
+            {payStatus.kind !== "success" && !isAirwallexConfigured && (
+              <p className="mt-6 text-sm text-text-muted">
+                {t("payment.notConfigured")}
+              </p>
+            )}
           </div>
-        </div>
+        )}
 
         {/* ── Lookup card ── */}
         <div className="card mt-6">
@@ -444,6 +686,7 @@ export default function PackagePay() {
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
                         {statusBadge(r.status)}
+                        {r.status === "paid" && shippingBadge(r.shippingStatus)}
                         <span>
                           {t("payment.lookupOrder")}: {r.orderId}
                         </span>
@@ -451,6 +694,13 @@ export default function PackagePay() {
                           {t("payment.lookupDate")}: {fmtDate(r.createdAt)}
                         </span>
                       </div>
+                      {r.status === "paid" && (r.courier || r.trackingNo) && (
+                        <p className="mt-1 text-xs text-text-secondary">
+                          {t("payment.trackingInfo")}: {r.courier}
+                          {r.courier && r.trackingNo ? " · " : ""}
+                          {r.trackingNo}
+                        </p>
+                      )}
 
                       {/* Refund / cancel request — only for still-paid orders */}
                       {r.status === "paid" && (

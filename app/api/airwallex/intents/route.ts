@@ -27,24 +27,42 @@ export async function POST(req: Request) {
       body && typeof body.packageName === "string"
         ? body.packageName.slice(0, 200)
         : "";
+    // Quantity is client-sent but only ever multiplies the SERVER-read unit
+    // price. Anything outside 1–99 (or non-integer) clamps to 1.
+    const rawQty = body ? Number(body.quantity) : 1;
+    const quantity =
+      Number.isInteger(rawQty) && rawQty >= 1 && rawQty <= 99 ? rawQty : 1;
 
     let opts: {
       amount?: string;
       currency?: string;
       description?: string;
       metadata?: Record<string, string>;
-    } = { metadata: packageName ? { packageName } : {} };
+    } = {
+      // Fallback (env-priced legacy product): quantity is NOT applied to the
+      // charge, so record it as 1 to keep charge and record consistent.
+      metadata: {
+        ...(packageName ? { packageName } : {}),
+        quantity: "1",
+      },
+    };
 
     if (productId && isFirebaseConfigured) {
       const product = await getProduct(productId);
       if (product && product.active) {
         const amount = normalizeAmount(product.amount);
         if (amount) {
+          // Total = unit price × quantity, computed in integer cents to avoid
+          // floating-point drift.
+          const totalCents = Math.round(Number(amount) * 100) * quantity;
           opts = {
-            amount,
+            amount: (totalCents / 100).toFixed(2),
             currency: product.currency || undefined,
             description: product.name || undefined,
-            metadata: { packageName: product.name || packageName },
+            metadata: {
+              packageName: product.name || packageName,
+              quantity: String(quantity),
+            },
           };
         }
       }

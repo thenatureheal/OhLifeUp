@@ -321,6 +321,31 @@ export default function AdminPaymentsPage() {
                         <option value="other">기타</option>
                       </select>
                     </div>
+                    <div className="field">
+                      <label>우편번호</label>
+                      <input
+                        className="input"
+                        value={draft.postcode}
+                        onChange={(e) =>
+                          setDraft((f) => ({ ...f, postcode: e.target.value }))
+                        }
+                        placeholder="우편번호"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>상세주소</label>
+                      <input
+                        className="input"
+                        value={draft.addressDetail}
+                        onChange={(e) =>
+                          setDraft((f) => ({
+                            ...f,
+                            addressDetail: e.target.value,
+                          }))
+                        }
+                        placeholder="동/호수 등 상세주소"
+                      />
+                    </div>
                     <div className="field sm:col-span-2">
                       <label>주소</label>
                       <input

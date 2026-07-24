@@ -20,6 +20,9 @@ const DETAILS_COLLECTION = "paymentDetails";
 /** Lifecycle status of a payment. Refund/cancel are recorded by an admin. */
 export type PaymentStatus = "paid" | "refunded" | "cancelled";
 
+/** Shipping progress, set by an admin: 배송준비중 → 배송중 → 배송완료. */
+export type ShippingStatus = "preparing" | "shipping" | "delivered";
+
 // Which provider processed this payment. New payments are always "airwallex";
 // "paypal" is kept only so legacy documents read correctly.
 export type PaymentProvider = "paypal" | "airwallex";
@@ -33,6 +36,7 @@ export interface PaymentRecord {
   amount: string;
   currency: string;
   packageName: string;
+  quantity: number;
   status: PaymentStatus;
   // Which provider processed the payment. Legacy docs have no field → "paypal".
   provider: PaymentProvider;
@@ -43,6 +47,11 @@ export interface PaymentRecord {
   // Provider transaction id used to match refund/reversal webhook events back to
   // this payment and to trigger the real refund (Airwallex → payment_intent id).
   captureId: string;
+  // Shipping info shown to the buyer via the public lookup. The full shipping
+  // ADDRESS is PII and lives in paymentDetails (admin-only), never here.
+  shippingStatus: ShippingStatus;
+  courier: string;
+  trackingNo: string;
   createdAt: string | null;
 }
 
@@ -54,6 +63,7 @@ export interface NewPayment {
   amount: string;
   currency: string;
   packageName: string;
+  quantity?: number;
   provider?: PaymentProvider;
   cardBrand?: string;
   cardLast4?: string;
@@ -66,14 +76,24 @@ export interface NewPayment {
  * firestore.rules) so it is never exposed via the public payment lookup.
  */
 export interface PaymentDetails {
+  recipient: string;
   address: string;
+  postcode: string;
+  addressDetail: string;
+  tel: string; // landline / secondary contact (optional)
+  deliveryMessage: string;
   birthdate: string; // YYYY-MM-DD (free text)
   gender: string; // "male" | "female" | "other" | ""
   memo: string;
 }
 
 export const EMPTY_DETAILS: PaymentDetails = {
+  recipient: "",
   address: "",
+  postcode: "",
+  addressDetail: "",
+  tel: "",
+  deliveryMessage: "",
   birthdate: "",
   gender: "",
   memo: "",
@@ -82,6 +102,11 @@ export const EMPTY_DETAILS: PaymentDetails = {
 /** Keep only digits — normalize phone numbers for reliable matching. */
 export function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
+}
+
+function clampQty(value: unknown): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : 1;
 }
 
 function toISO(value: unknown): string | null {
@@ -103,11 +128,15 @@ export async function recordPayment(input: NewPayment): Promise<string> {
     amount: input.amount,
     currency: input.currency,
     packageName: input.packageName,
+    quantity: clampQty(input.quantity),
     status: "paid",
     provider: input.provider ?? "airwallex",
     cardBrand: (input.cardBrand ?? "").slice(0, 30),
     cardLast4: (input.cardLast4 ?? "").slice(0, 4),
     captureId: (input.captureId ?? "").slice(0, 100),
+    shippingStatus: "preparing",
+    courier: "",
+    trackingNo: "",
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -123,11 +152,15 @@ function mapPayment(id: string, data: Record<string, unknown>): PaymentRecord {
     amount: (data.amount as string) ?? "",
     currency: (data.currency as string) ?? "",
     packageName: (data.packageName as string) ?? "",
+    quantity: clampQty(data.quantity),
     status: (data.status as PaymentStatus) ?? "paid",
     provider: (data.provider as PaymentProvider) ?? "paypal",
     cardBrand: (data.cardBrand as string) ?? "",
     cardLast4: (data.cardLast4 as string) ?? "",
     captureId: (data.captureId as string) ?? "",
+    shippingStatus: (data.shippingStatus as ShippingStatus) ?? "preparing",
+    courier: (data.courier as string) ?? "",
+    trackingNo: (data.trackingNo as string) ?? "",
     createdAt: toISO(data.createdAt),
   };
 }
@@ -159,7 +192,12 @@ export async function getPaymentDetails(
   if (!snap.exists()) return { ...EMPTY_DETAILS };
   const d = snap.data();
   return {
+    recipient: d.recipient ?? "",
     address: d.address ?? "",
+    postcode: d.postcode ?? "",
+    addressDetail: d.addressDetail ?? "",
+    tel: d.tel ?? "",
+    deliveryMessage: d.deliveryMessage ?? "",
     birthdate: d.birthdate ?? "",
     gender: d.gender ?? "",
     memo: d.memo ?? "",
@@ -175,7 +213,12 @@ export async function listAllPaymentDetails(): Promise<
   snap.docs.forEach((d) => {
     const data = d.data();
     out[d.id] = {
+      recipient: data.recipient ?? "",
       address: data.address ?? "",
+      postcode: data.postcode ?? "",
+      addressDetail: data.addressDetail ?? "",
+      tel: data.tel ?? "",
+      deliveryMessage: data.deliveryMessage ?? "",
       birthdate: data.birthdate ?? "",
       gender: data.gender ?? "",
       memo: data.memo ?? "",
@@ -190,10 +233,58 @@ export async function savePaymentDetails(
   details: PaymentDetails
 ): Promise<void> {
   await setDoc(doc(db, DETAILS_COLLECTION, paymentId), {
+    recipient: details.recipient.trim().slice(0, 100),
     address: details.address.trim().slice(0, 300),
+    postcode: details.postcode.trim().slice(0, 20),
+    addressDetail: details.addressDetail.trim().slice(0, 200),
+    tel: details.tel.trim().slice(0, 30),
+    deliveryMessage: details.deliveryMessage.trim().slice(0, 200),
     birthdate: details.birthdate.trim().slice(0, 40),
     gender: details.gender.trim().slice(0, 20),
     memo: details.memo.trim().slice(0, 1000),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Update shipping status / courier / tracking number (admin only). */
+export async function updateShipping(
+  id: string,
+  input: { shippingStatus: ShippingStatus; courier: string; trackingNo: string }
+): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, id), {
+    shippingStatus: input.shippingStatus,
+    courier: input.courier.trim().slice(0, 50),
+    trackingNo: input.trackingNo.trim().slice(0, 60),
+  });
+}
+
+/**
+ * Save the buyer-entered shipping address right after checkout. Called from the
+ * Airwallex return page (guest, unauthenticated) — firestore.rules allows
+ * CREATE-only on paymentDetails with this exact shape; read/update stay
+ * admin-only so the address is never publicly readable.
+ */
+export async function saveShippingAddress(
+  paymentId: string,
+  input: {
+    recipient: string;
+    address: string;
+    postcode: string;
+    addressDetail: string;
+    tel: string;
+    deliveryMessage: string;
+  }
+): Promise<void> {
+  await setDoc(doc(db, DETAILS_COLLECTION, paymentId), {
+    recipient: input.recipient.trim().slice(0, 100),
+    address: input.address.trim().slice(0, 300),
+    postcode: input.postcode.trim().slice(0, 20),
+    addressDetail: input.addressDetail.trim().slice(0, 200),
+    tel: input.tel.trim().slice(0, 30),
+    deliveryMessage: input.deliveryMessage.trim().slice(0, 200),
+    birthdate: "",
+    gender: "",
+    memo: "",
     updatedAt: serverTimestamp(),
   });
 }
